@@ -23,6 +23,10 @@ import {
   url as niutransUrl
 } from '@/components/dictionaries/niutrans/auth'
 import {
+  auth as openai,
+  url as openaiUrl
+} from '@/components/dictionaries/openai/auth'
+import {
   auth as tencent,
   url as tencentUrl
 } from '@/components/dictionaries/tencent/auth'
@@ -42,6 +46,7 @@ export const defaultDictAuths = {
   deepl,
   deeplx,
   niutrans,
+  openai,
   tencent,
   volc,
   youdaotrans
@@ -56,6 +61,7 @@ export const defaultDictAuthUrls: { [id in keyof DictAuths]: string } = {
   deepl: deeplUrl,
   deeplx: deeplxUrl,
   niutrans: niutransUrl,
+  openai: openaiUrl,
   tencent: tencentUrl,
   volc: volcUrl,
   youdaotrans: youdaotransUrl

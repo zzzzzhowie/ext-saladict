@@ -441,7 +441,19 @@ export const locale: typeof _locale = {
     description:
       'As the number of Saladict users grows, if you make heavily use of machine translation services it is recommended to register an account for better stability and accuracy. The account data will only be stored in the browser.',
     dictHelp: 'See the official website of {dict}.',
-    manage: 'Manage Translator Accounts'
+    manage: 'Manage Translator Accounts',
+    openai: {
+      promptHelp:
+        'Placeholders: {{text}} source text, {{from}} source lang, {{to}} target lang, {{sentence}} the whole sentence the word is in.',
+      reasoningEffortHelp:
+        'Reasoning effort — lower is faster and cheaper. GPT-5 models accept none/low/medium/high/xhigh (use none for the cheapest); leave empty for the model default. Safe to leave empty for non-reasoning models; an unsupported value is dropped automatically.',
+      maxTokensHelp: 'Cap the output length. Empty or 0 means no limit.',
+      test: 'Test service',
+      testSuccess: 'Test succeeded: ',
+      testEmpty: 'Test failed: the model returned nothing.',
+      testMissing: 'Please fill in baseUrl, apiKey and model first.',
+      testFailed: 'Test failed: '
+    }
   },
 
   third_party_privacy: 'Third Party Privacy',

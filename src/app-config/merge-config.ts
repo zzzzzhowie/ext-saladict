@@ -12,6 +12,14 @@ import isString from 'lodash/isString'
 import isBoolean from 'lodash/isBoolean'
 import get from 'lodash/get'
 import set from 'lodash/set'
+import {
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_OPENAI_PROMPT,
+  DEFAULT_OPENAI_SYSTEM_PROMPT,
+  LEGACY_OPENAI_MODELS,
+  LEGACY_OPENAI_PROMPTS,
+  LEGACY_OPENAI_SYSTEM_PROMPTS
+} from '@/components/dictionaries/openai/auth'
 
 export default mergeConfig
 
@@ -218,6 +226,21 @@ export function mergeConfig(
 
   if (base.panelMaxHeightRatio < 1) {
     base.panelMaxHeightRatio = Math.round(base.panelMaxHeightRatio * 100)
+  }
+
+  // Upgrade OpenAI fields that still hold a previous default (i.e. the user
+  // never customised them) to the current defaults.
+  const openaiAuth = base.dictAuth.openai
+  if (openaiAuth) {
+    if (LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
+      openaiAuth.model = DEFAULT_OPENAI_MODEL
+    }
+    if (LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt)) {
+      openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
+    }
+    if (LEGACY_OPENAI_PROMPTS.includes(openaiAuth.prompt)) {
+      openaiAuth.prompt = DEFAULT_OPENAI_PROMPT
+    }
   }
   /* ----------------------------------------------- *\
       Post-merge Patch End

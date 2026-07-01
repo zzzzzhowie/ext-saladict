@@ -66,8 +66,12 @@ export function inflate(
   profile?: Profile | ProfileCompressed
 ): Profile | undefined {
   if (profile && profile['v'] === 1) {
-    return JSON.parse(
-      pako.inflate((profile as ProfileCompressedV1).d, { to: 'string' })
+    // Merge against defaults so dicts/options added after this profile was
+    // stored (e.g. new dictionaries) show up for legacy v1 profiles too.
+    return mergeProfile(
+      JSON.parse(
+        pako.inflate((profile as ProfileCompressedV1).d, { to: 'string' })
+      )
     )
   }
   if (profile && profile['v'] === 2) {
@@ -76,7 +80,8 @@ export function inflate(
     )
     return mergeProfile(patch)
   }
-  return profile as Profile | undefined
+  // Uncompressed legacy profile — merge so it picks up newly-added dicts.
+  return profile ? mergeProfile(profile as Profile) : undefined
 }
 
 function createProfilePatch(profile: Profile): ProfilePatch {

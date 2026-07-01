@@ -80,6 +80,8 @@ export type MessageConfig = MessageConfigType<{
       /** engine search function payload */
       payload: {
         isPDF: boolean
+        /** the sentence the selected word belongs to (selection context) */
+        sentence?: string
         [index: string]: any
       }
     }
