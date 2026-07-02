@@ -13,9 +13,7 @@ import {
 import {
   commonMachineLanguages,
   createLanguageHelper,
-  credentialErrorResult,
-  credentialRequiredResult,
-  getAxiosCredentialError
+  credentialRequiredResult
 } from '../machine-custom'
 import {
   DEFAULT_OPENAI_BASE_URL,
@@ -40,6 +38,10 @@ export interface OpenAIResult {
   html?: string
   /** raw text, for copy / fallback */
   text?: string
+  /** when true, the View streams the result itself via a background port */
+  streaming?: boolean
+  /** args the View replays to the streaming port (no secrets — apiKey stays in bg) */
+  args?: { text: string; from: string; to: string; sentence?: string }
   requireCredential?: boolean
   credentialError?: MachineCredentialError
 }
@@ -164,29 +166,36 @@ export interface OpenAITranslateInput extends ResolvedOpenAIConfig {
 export async function openaiTranslate(
   input: OpenAITranslateInput
 ): Promise<string> {
-  const {
-    baseUrl,
-    apiKey,
-    model,
-    systemPrompt,
-    prompt,
-    temperature,
-    reasoningEffort,
-    maxTokens
-  } = input
+  const messages = buildChatMessages(input, input)
+  const body = buildChatBody(input, messages, false)
 
-  // The selection is what the user wants translated — always pass it in FULL
-  // (a whole selected paragraph must be translated completely, never cut).
-  // Only the CONTEXT is trimmed: when the selection is a single word/phrase,
-  // feed just the sentence that word sits in, not the surrounding paragraph.
+  const response = await postChatCompletions(
+    buildChatCompletionsUrl(input.baseUrl),
+    body,
+    buildChatHeaders(input.apiKey)
+  )
+
+  const content = response.data?.choices?.[0]?.message?.content
+  return typeof content === 'string' ? stripCodeFences(content) : ''
+}
+
+/** Build the chat `messages` array, choosing the mode-appropriate prompts. */
+function buildChatMessages(
+  resolved: ResolvedOpenAIConfig,
+  input: { text: string; from: string; to: string; sentence?: string }
+): Array<{ role: string; content: string }> {
+  // The selection is what the user wants translated — always passed in FULL.
+  // Only the CONTEXT is trimmed to the sentence around a single word/phrase.
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
 
-  // Mode is decided in code: word/phrase -> study card (user's prompts);
+  // Mode decided in code: word/phrase -> study card (user's prompts);
   // sentence/paragraph -> translation only (forced prompts).
   const wordMode = isWordOrPhrase(selection)
-  const sysPrompt = wordMode ? systemPrompt : TRANSLATE_ONLY_SYSTEM_PROMPT
-  const userPrompt = wordMode ? prompt : TRANSLATE_ONLY_PROMPT
+  const sysPrompt = wordMode
+    ? resolved.systemPrompt
+    : TRANSLATE_ONLY_SYSTEM_PROMPT
+  const userPrompt = wordMode ? resolved.prompt : TRANSLATE_ONLY_PROMPT
 
   const messages: Array<{ role: string; content: string }> = []
   if (sysPrompt.trim()) {
@@ -201,42 +210,120 @@ export async function openaiTranslate(
       sentence
     })
   })
+  return messages
+}
 
-  const newModel = isNewOpenAIModel(model)
-
-  const body: Record<string, any> = {
-    model,
-    messages,
-    stream: false
-  }
-  // Newer OpenAI reasoning models (gpt-5+, o-series) only accept the default
-  // temperature (1); any other value 400s. Only send it for older models.
+/** Build the request body, applying newer-model param conventions. */
+function buildChatBody(
+  resolved: ResolvedOpenAIConfig,
+  messages: Array<{ role: string; content: string }>,
+  stream: boolean
+): Record<string, any> {
+  const newModel = isNewOpenAIModel(resolved.model)
+  const body: Record<string, any> = { model: resolved.model, messages, stream }
+  // Newer reasoning models (gpt-5+, o-series) only accept the default
+  // temperature; send it only for older models.
   if (!newModel) {
-    body.temperature = temperature
+    body.temperature = resolved.temperature
   }
-  // Only send these when set: unsupported params make some providers 400.
-  if (reasoningEffort) {
-    body.reasoning_effort = reasoningEffort
+  if (resolved.reasoningEffort) {
+    body.reasoning_effort = resolved.reasoningEffort
   }
-  if (maxTokens > 0) {
+  if (resolved.maxTokens > 0) {
     // Newer models renamed `max_tokens` -> `max_completion_tokens`.
     if (newModel) {
-      body.max_completion_tokens = maxTokens
+      body.max_completion_tokens = resolved.maxTokens
     } else {
-      body.max_tokens = maxTokens
+      body.max_tokens = resolved.maxTokens
     }
   }
+  return body
+}
 
-  const url = buildChatCompletionsUrl(baseUrl)
-  const headers = {
+function buildChatHeaders(apiKey: string): Record<string, string> {
+  return {
     'Content-Type': 'application/json',
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
   }
+}
 
-  const response = await postChatCompletions(url, body, headers)
+/**
+ * Streaming variant used by the dict View for fast, progressive rendering.
+ * Resolves the auth in the background (keeping the apiKey out of page context),
+ * streams the OpenAI SSE response, and calls `onDelta` with the accumulated
+ * (fence-stripped) HTML as it grows. Throws on http/network errors; the error
+ * carries `.status` so the caller can classify credential failures.
+ */
+export interface OpenAIStreamInput {
+  text: string
+  from: string
+  to: string
+  sentence?: string
+}
 
-  const content = response.data?.choices?.[0]?.message?.content
-  return typeof content === 'string' ? stripCodeFences(content) : ''
+export async function openaiStream(
+  auth: OpenAIAuthConfig,
+  input: OpenAIStreamInput,
+  onDelta: (html: string) => void
+): Promise<void> {
+  const resolved = resolveOpenAIConfig(auth)
+  const messages = buildChatMessages(resolved, input)
+  const body = buildChatBody(resolved, messages, true)
+
+  const res = await fetch(buildChatCompletionsUrl(resolved.baseUrl), {
+    method: 'POST',
+    headers: buildChatHeaders(resolved.apiKey),
+    body: JSON.stringify(body)
+  })
+
+  if (!res.ok || !res.body) {
+    const errText = await res.text().catch(() => '')
+    let apiMessage = ''
+    try {
+      apiMessage = JSON.parse(errText)?.error?.message || ''
+    } catch {
+      /* non-JSON error body */
+    }
+    const err: any = new Error(
+      apiMessage || `OpenAI request failed (${res.status})`
+    )
+    err.status = res.status
+    throw err
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const data = trimmed.slice(5).trim()
+      if (data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        const delta = json.choices?.[0]?.delta?.content
+        if (typeof delta === 'string' && delta) {
+          content += delta
+          onDelta(stripStreamingFences(content))
+        }
+      } catch {
+        /* keep-alive comment or partial chunk */
+      }
+    }
+  }
+}
+
+/** Strip a leading ```lang fence and a trailing ``` from partial stream output. */
+export function stripStreamingFences(text: string): string {
+  return text.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```\s*$/, '')
 }
 
 /**
@@ -335,24 +422,15 @@ export const search: SearchFunction<
     >
   }
 
-  try {
-    const html = await openaiTranslate({
-      ...resolved,
-      text,
-      from: sl,
-      to: tl,
-      sentence: (payload as any).sentence
-    })
-    return { result: { id: 'openai', html, text: html } }
-  } catch (e) {
-    const credentialError = getAxiosCredentialError(e)
-    if (credentialError) {
-      return credentialErrorResult(
-        'openai',
-        credentialError,
-        langcodes
-      ) as DictSearchResult<OpenAIResult>
+  // Don't call OpenAI here — return immediately so the panel stops spinning,
+  // then let the View stream the result over a background port (fast, and the
+  // apiKey never leaves the background). Invalid-credential/errors surface
+  // through that stream, not here.
+  return {
+    result: {
+      id: 'openai',
+      streaming: true,
+      args: { text, from: sl, to: tl, sentence: (payload as any).sentence }
     }
-    return { result: { id: 'openai', html: '', text: '' } }
   }
 }

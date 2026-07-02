@@ -23,6 +23,7 @@ import './types'
 import { DictID } from '@/app-config'
 import { initBackgroundState } from './state'
 import { getDomTaskBridge } from './dom-task-bridge'
+import { registerOpenAIStreamPort } from './openai-stream'
 import { canUseOffscreenDocument } from './offscreen-document'
 import {
   callDictEngineMethodInOffscreen,
@@ -182,6 +183,8 @@ export class BackgroundServer {
         port.onDisconnect.addListener(() => {
           getDomTaskBridge().stopAudio()
         })
+      } else if (port.name === 'saladict-openai-stream') {
+        registerOpenAIStreamPort(port)
       }
     })
   }

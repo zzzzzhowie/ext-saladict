@@ -1,4 +1,4 @@
-import React, { FC } from 'react'
+import React, { FC, useEffect, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { ViewPorps } from '@/components/dictionaries/helpers'
 import { Trans, useTranslate } from '@/_helpers/i18n'
@@ -38,16 +38,93 @@ const CredentialMessage: FC<{
   )
 }
 
+const Card: FC<{ html: string }> = ({ html }) => (
+  <div
+    className="openai-card"
+    dangerouslySetInnerHTML={{
+      __html: DOMPurify.sanitize(html, SANITIZE_CONFIG) as string
+    }}
+  />
+)
+
+/**
+ * Streams the result over a background port and renders it progressively.
+ * The apiKey stays in the background; this only sends the selection args.
+ */
+const StreamingCard: FC<{
+  args: NonNullable<OpenAIResult['args']>
+}> = ({ args }) => {
+  const [html, setHtml] = useState('')
+  const [error, setError] = useState<{
+    credentialError?: OpenAIResult['credentialError']
+    message?: string
+  } | null>(null)
+
+  useEffect(() => {
+    setHtml('')
+    setError(null)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const port = browser.runtime.connect({
+      name: 'saladict-openai-stream'
+    } as any)
+    let finished = false
+
+    port.onMessage.addListener((msg: any) => {
+      if (!msg) return
+      if (msg.type === 'delta') {
+        setHtml(msg.html)
+      } else if (msg.type === 'done') {
+        finished = true
+        try {
+          port.disconnect()
+        } catch {
+          /* noop */
+        }
+      } else if (msg.type === 'error') {
+        finished = true
+        setError({ credentialError: msg.credentialError, message: msg.message })
+        try {
+          port.disconnect()
+        } catch {
+          /* noop */
+        }
+      }
+    })
+
+    port.postMessage(args)
+
+    return () => {
+      if (!finished) {
+        try {
+          port.disconnect()
+        } catch {
+          /* noop */
+        }
+      }
+    }
+  }, [args.text, args.from, args.to, args.sentence])
+
+  if (error) {
+    if (error.credentialError) {
+      return <CredentialMessage error={error.credentialError} />
+    }
+    return <div className="openai-card">{error.message || 'Error'}</div>
+  }
+
+  return <Card html={html} />
+}
+
 export const OpenAIView: FC<ViewPorps<OpenAIResult>> = ({ result }) => {
   if (result.requireCredential || result.credentialError) {
     return <CredentialMessage error={result.credentialError} />
   }
 
-  const html = DOMPurify.sanitize(result.html || '', SANITIZE_CONFIG) as string
+  if (result.streaming && result.args) {
+    return <StreamingCard args={result.args} />
+  }
 
-  return (
-    <div className="openai-card" dangerouslySetInnerHTML={{ __html: html }} />
-  )
+  return <Card html={result.html || ''} />
 }
 
 export default OpenAIView

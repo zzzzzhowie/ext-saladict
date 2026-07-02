@@ -1,5 +1,10 @@
+import { TextEncoder, TextDecoder } from 'util'
 import AxiosMockAdapter from 'axios-mock-adapter'
 import axios from 'axios'
+
+// jsdom doesn't provide these globals; the streaming engine + tests need them.
+;(global as any).TextEncoder = (global as any).TextEncoder || TextEncoder
+;(global as any).TextDecoder = (global as any).TextDecoder || TextDecoder
 import { getDefaultConfig } from '@/app-config'
 import { getDefaultProfile } from '@/app-config/profiles'
 import {
@@ -7,10 +12,12 @@ import {
   extractSentence,
   isNewOpenAIModel,
   isWordOrPhrase,
+  openaiStream,
   openaiTranslate,
   resolveOpenAIConfig,
   search,
-  stripCodeFences
+  stripCodeFences,
+  stripStreamingFences
 } from '@/components/dictionaries/openai/engine'
 import { DEFAULT_OPENAI_MODEL } from '@/components/dictionaries/openai/auth'
 
@@ -256,32 +263,7 @@ describe('openai translator', () => {
     expect(result.result.id).toBe('openai')
   })
 
-  it('reports invalid OpenAI credentials', async () => {
-    const mock = new AxiosMockAdapter(axios)
-    mock
-      .onPost('https://api.openai.com/v1/chat/completions')
-      .reply(401, { error: { message: 'invalid api key' } })
-
-    const config = getDefaultConfig()
-    const profile = getDefaultProfile()
-    ;(config.dictAuth as any).openai.apiKey = 'bad'
-
-    const result = await search('hello', config, profile, {
-      isPDF: false,
-      sl: 'en',
-      tl: 'zh-CN'
-    })
-
-    expect(result.result.credentialError).toBe('invalid')
-    mock.restore()
-  })
-
-  it('translates via search on success', async () => {
-    const mock = new AxiosMockAdapter(axios)
-    mock
-      .onPost('https://api.openai.com/v1/chat/completions')
-      .reply(200, { choices: [{ message: { content: '<p>你好</p>' } }] })
-
+  it('returns a streaming marker from search when credentials are present', async () => {
     const config = getDefaultConfig()
     const profile = getDefaultProfile()
     ;(config.dictAuth as any).openai.apiKey = 'sk-xxx'
@@ -292,8 +274,69 @@ describe('openai translator', () => {
       tl: 'zh-CN'
     })
 
-    expect(result.result.html).toContain('你好')
-    mock.restore()
+    expect(result.result.streaming).toBe(true)
+    expect(result.result.args && result.result.args.text).toBeTruthy()
+  })
+
+  it('streams and accumulates SSE deltas', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"content":"<p>你"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"好</p>"}}]}\n\n',
+      'data: [DONE]\n\n'
+    ]
+    const encoder = new TextEncoder()
+    let i = 0
+    const origFetch = (global as any).fetch
+    ;(global as any).fetch = jest.fn(async () => ({
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: async () =>
+            i < chunks.length
+              ? { done: false, value: encoder.encode(chunks[i++]) }
+              : { done: true, value: undefined }
+        })
+      }
+    }))
+
+    const deltas: string[] = []
+    await openaiStream(
+      { apiKey: 'sk-xxx' },
+      { text: 'hello', from: 'en', to: 'zh-CN' },
+      h => deltas.push(h)
+    )
+
+    expect(deltas[deltas.length - 1]).toBe('<p>你好</p>')
+    ;(global as any).fetch = origFetch
+  })
+
+  it('throws a status-carrying error when the stream returns 401', async () => {
+    const origFetch = (global as any).fetch
+    ;(global as any).fetch = jest.fn(async () => ({
+      ok: false,
+      status: 401,
+      body: null,
+      text: async () => JSON.stringify({ error: { message: 'invalid key' } })
+    }))
+
+    let caught: any
+    try {
+      await openaiStream(
+        { apiKey: 'bad' },
+        { text: 'hi', from: 'en', to: 'zh-CN' },
+        () => undefined
+      )
+    } catch (e) {
+      caught = e
+    }
+
+    expect(caught && caught.status).toBe(401)
+    ;(global as any).fetch = origFetch
+  })
+
+  it('strips streaming code fences', () => {
+    expect(stripStreamingFences('```html\n<p>hi</p>')).toBe('<p>hi</p>')
+    expect(stripStreamingFences('<p>hi</p>\n```')).toBe('<p>hi</p>')
   })
 
   it('remaps reasoning_effort minimal -> none when rejected', async () => {
