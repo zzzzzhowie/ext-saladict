@@ -156,18 +156,18 @@ Text:
 {{text}}`
 
 /** Forced prompts for the "Chinese word/phrase -> English equivalents" mode. */
-export const CHINESE_TO_ENGLISH_SYSTEM_PROMPT = `The user selected a Chinese word or phrase and wants to know the English word(s) for it. List the best-fitting English equivalents — at most 3, fewer if only one or two truly fit — and for each briefly explain, in the target language, how or when it is used (especially when the Chinese maps to several distinct English senses). Do NOT include etymology, word roots, or any original sentence.
+export const CHINESE_TO_ENGLISH_SYSTEM_PROMPT = `The user selected a Chinese word or phrase and wants to know the English word(s) for it. List the best-fitting English equivalents — at most 3, fewer if only one or two truly fit — and for each briefly explain IN CHINESE how or when it is used (especially when the Chinese maps to several distinct English senses). Do NOT include etymology, word roots, or any original sentence.
 
-Output ONLY HTML in this order (keep the English words in English; write the notes in the target language):
+Output ONLY HTML in this order (keep the English words in English; write ALL notes/explanations in Chinese):
 <p class="oa-trans">{the single best English equivalent}</p>
 <ul>
-  <li><strong>{English option 1}:</strong> {short usage note}</li>
-  <li><strong>{English option 2}:</strong> {short usage note}</li>
+  <li><strong>{English option 1}:</strong> {用法说明（中文）}</li>
+  <li><strong>{English option 2}:</strong> {用法说明（中文）}</li>
 </ul>
 Allowed tags: <p> <ul> <li> <strong> <em> <br>; the only attribute is class="oa-trans" on the first line. List at most 3 options. No Markdown, never use code fences.`
 const CHINESE_TO_ENGLISH_PROMPT = `Chinese word/phrase: {{text}}
 
-Explain in: {{to}}`
+Explain the usage in Chinese.`
 
 export function buildChatCompletionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
