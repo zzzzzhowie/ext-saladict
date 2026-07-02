@@ -18,7 +18,8 @@ import {
   DEFAULT_OPENAI_SYSTEM_PROMPT,
   LEGACY_OPENAI_MODELS,
   LEGACY_OPENAI_PROMPTS,
-  LEGACY_OPENAI_SYSTEM_PROMPTS
+  LEGACY_OPENAI_SYSTEM_PROMPTS,
+  OPENAI_PROMPT_VERSION
 } from '@/components/dictionaries/openai/auth'
 import { DEFAULT_DEEPL_AUTH_KEY } from '@/components/dictionaries/deepl/auth'
 
@@ -229,27 +230,29 @@ export function mergeConfig(
     base.panelMaxHeightRatio = Math.round(base.panelMaxHeightRatio * 100)
   }
 
-  // Upgrade OpenAI fields that still hold a previous default (i.e. the user
-  // never customised them) to the current defaults.
+  // Upgrade OpenAI config that still holds a previous default to the current
+  // defaults. Model uses the legacy-value list; prompts use a version stamp so
+  // any stale default (even ones predating the legacy list) is force-restored
+  // exactly once — later manual edits re-stamp the version and are preserved.
   const openaiAuth = base.dictAuth.openai
   if (openaiAuth) {
     if (LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
       openaiAuth.model = DEFAULT_OPENAI_MODEL
     }
-    // Restore to the current default when the stored value is a former default
-    // (never customised) or empty — covers configs stuck on an old build's prompt.
+    const storedPromptVersion = (oldConfig.dictAuth as any).openai
+      ? (oldConfig.dictAuth as any).openai.promptVersion
+      : undefined
     if (
+      storedPromptVersion !== OPENAI_PROMPT_VERSION ||
       !openaiAuth.systemPrompt ||
-      LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt)
-    ) {
-      openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
-    }
-    if (
+      LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt) ||
       !openaiAuth.prompt ||
       LEGACY_OPENAI_PROMPTS.includes(openaiAuth.prompt)
     ) {
+      openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
       openaiAuth.prompt = DEFAULT_OPENAI_PROMPT
     }
+    openaiAuth.promptVersion = OPENAI_PROMPT_VERSION
   }
 
   // Fill in the built-in DeepL auth key (from .env) when the user has none.

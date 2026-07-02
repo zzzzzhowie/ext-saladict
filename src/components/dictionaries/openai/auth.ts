@@ -2,6 +2,14 @@ export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-nano'
 export const DEFAULT_OPENAI_TEMPERATURE = '0'
 
+/**
+ * Bump whenever the default systemPrompt/prompt is meaningfully improved. The
+ * config migration force-restores users whose stored `promptVersion` is behind
+ * to the current defaults (their later manual edits re-stamp the version, so a
+ * single bump only clobbers stale defaults, not fresh customisations).
+ */
+export const OPENAI_PROMPT_VERSION = 1
+
 export const DEFAULT_OPENAI_SYSTEM_PROMPT = `You are an English study assistant embedded in a browser dictionary. The user selects text on a web page; help them understand it in the requested target language.
 
 First decide the type of the selection:
@@ -47,7 +55,9 @@ export const auth = {
    */
   reasoningEffort: 'none',
   /** max output tokens. Empty = no limit. Caps the worst-case output cost. */
-  maxTokens: '600'
+  maxTokens: '600',
+  /** stamp of the default prompt this config last synced to; see migration. */
+  promptVersion: OPENAI_PROMPT_VERSION
 }
 
 export const url = 'https://platform.openai.com/docs/api-reference/chat'

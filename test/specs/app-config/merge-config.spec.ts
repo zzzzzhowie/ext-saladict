@@ -5,7 +5,7 @@ import {
   DEFAULT_OPENAI_MODEL,
   DEFAULT_OPENAI_PROMPT,
   DEFAULT_OPENAI_SYSTEM_PROMPT,
-  LEGACY_OPENAI_PROMPTS
+  OPENAI_PROMPT_VERSION
 } from '@/components/dictionaries/openai/auth'
 
 describe('mergeConfig', () => {
@@ -65,36 +65,36 @@ describe('mergeConfig', () => {
     ])
   })
 
-  it('upgrades stale OpenAI defaults but keeps user customisations', () => {
+  it('force-restores stale OpenAI prompts and model when the version is behind', () => {
     const oldConfig = getDefaultConfig() as AppConfigMutable
-    // never-customised legacy values
     oldConfig.dictAuth.openai.model = 'gpt-4o-mini'
-    oldConfig.dictAuth.openai.prompt = LEGACY_OPENAI_PROMPTS[0]
-    // user-customised value must be preserved
-    oldConfig.dictAuth.openai.systemPrompt = 'my custom system prompt'
+    // an old default the legacy list never captured + no version stamp
+    oldConfig.dictAuth.openai.systemPrompt = 'some very early prompt'
+    oldConfig.dictAuth.openai.prompt = 'some very early user prompt'
+    delete (oldConfig.dictAuth.openai as any).promptVersion
 
     const merged = mergeConfig(oldConfig)
 
     expect(merged.dictAuth.openai.model).toBe(DEFAULT_OPENAI_MODEL)
-    expect(merged.dictAuth.openai.prompt).toBe(DEFAULT_OPENAI_PROMPT)
-    expect(merged.dictAuth.openai.systemPrompt).toBe('my custom system prompt')
-    // ensure it's not the current default (i.e. the upgrade didn't clobber it)
-    expect(merged.dictAuth.openai.systemPrompt).not.toBe(
-      DEFAULT_OPENAI_SYSTEM_PROMPT
-    )
-  })
-
-  it('restores an empty OpenAI prompt to the current default', () => {
-    const oldConfig = getDefaultConfig() as AppConfigMutable
-    oldConfig.dictAuth.openai.systemPrompt = ''
-    oldConfig.dictAuth.openai.prompt = ''
-
-    const merged = mergeConfig(oldConfig)
-
     expect(merged.dictAuth.openai.systemPrompt).toBe(
       DEFAULT_OPENAI_SYSTEM_PROMPT
     )
     expect(merged.dictAuth.openai.prompt).toBe(DEFAULT_OPENAI_PROMPT)
+    expect((merged.dictAuth.openai as any).promptVersion).toBe(
+      OPENAI_PROMPT_VERSION
+    )
+  })
+
+  it('preserves OpenAI customisations once the prompt version is stamped', () => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    ;(oldConfig.dictAuth.openai as any).promptVersion = OPENAI_PROMPT_VERSION
+    oldConfig.dictAuth.openai.systemPrompt = 'my custom system prompt'
+    oldConfig.dictAuth.openai.prompt = 'my custom prompt'
+
+    const merged = mergeConfig(oldConfig)
+
+    expect(merged.dictAuth.openai.systemPrompt).toBe('my custom system prompt')
+    expect(merged.dictAuth.openai.prompt).toBe('my custom prompt')
   })
 
   it('keeps new machine translators aligned with default language behavior', () => {
