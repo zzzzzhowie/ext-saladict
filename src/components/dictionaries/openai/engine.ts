@@ -98,6 +98,25 @@ function fillTemplate(
     .replace(/\{\{\s*sentence\s*\}\}/g, vars.sentence)
 }
 
+/** Max chars of selection / context sent to the model. Keeps requests fast. */
+export const MAX_INPUT_LEN = 300
+
+/**
+ * Reduce the captured context to the single sentence around the selection so
+ * we never feed a whole paragraph to the model (slower and costlier). Picks
+ * the sentence that contains the selected text; falls back to the first
+ * sentence, and caps the length as a final guard.
+ */
+export function extractSentence(selection: string, context: string): string {
+  const ctx = (context || '').replace(/\s+/g, ' ').trim()
+  if (!ctx) return ''
+  const sentences = ctx.match(/[^.?!。？！…]+[.?!。？！…]*/g) || [ctx]
+  const needle = (selection || '').replace(/\s+/g, ' ').trim()
+  const hit =
+    (needle && sentences.find(s => s.includes(needle))) || sentences[0]
+  return hit.trim().slice(0, MAX_INPUT_LEN)
+}
+
 export function buildChatCompletionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
   return /\/chat\/completions$/i.test(trimmed)
@@ -136,13 +155,15 @@ export async function openaiTranslate(
   if (systemPrompt.trim()) {
     messages.push({ role: 'system', content: systemPrompt })
   }
+  // Only feed the current sentence (not the whole paragraph) to keep it fast.
+  const sentence = extractSentence(input.text, input.sentence || input.text)
   messages.push({
     role: 'user',
     content: fillTemplate(prompt, {
-      text: input.text,
+      text: input.text.trim().slice(0, MAX_INPUT_LEN),
       from: input.from,
       to: input.to,
-      sentence: input.sentence || input.text
+      sentence
     })
   })
 

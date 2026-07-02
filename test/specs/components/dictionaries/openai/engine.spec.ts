@@ -4,6 +4,7 @@ import { getDefaultConfig } from '@/app-config'
 import { getDefaultProfile } from '@/app-config/profiles'
 import {
   buildChatCompletionsUrl,
+  extractSentence,
   isNewOpenAIModel,
   openaiTranslate,
   resolveOpenAIConfig,
@@ -43,7 +44,7 @@ describe('openai translator', () => {
     const mock = new AxiosMockAdapter(axios)
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
       const body = JSON.parse(config.data)
-      expect(body.model).toBe('gpt-5.4-mini')
+      expect(body.model).toBe('gpt-5.4-nano')
       expect(body.messages[0].role).toBe('system')
       expect(body.messages[1].content).toContain('Hello, world!')
       expect(body.messages[1].content).toContain('zh-CN')
@@ -91,7 +92,7 @@ describe('openai translator', () => {
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
       const body = JSON.parse(config.data)
       expect(body.reasoning_effort).toBe('minimal')
-      // gpt-5.4-mini is a "new" model: renamed param, no temperature
+      // gpt-5.4-nano is a "new" model: renamed param, no temperature
       expect(body.max_completion_tokens).toBe(256)
       expect(body.max_tokens).toBeUndefined()
       expect(body.temperature).toBeUndefined()
@@ -137,10 +138,47 @@ describe('openai translator', () => {
   })
 
   it('classifies new vs legacy OpenAI models', () => {
+    expect(isNewOpenAIModel('gpt-5.4-nano')).toBe(true)
     expect(isNewOpenAIModel('gpt-5.4-mini')).toBe(true)
     expect(isNewOpenAIModel('o3-mini')).toBe(true)
     expect(isNewOpenAIModel('gpt-4o-mini')).toBe(false)
     expect(isNewOpenAIModel('gpt-3.5-turbo')).toBe(false)
+  })
+
+  it('feeds only the current sentence, not the whole paragraph', () => {
+    const paragraph =
+      'Sentence one is here. The bank of the river was muddy. Sentence three follows.'
+    expect(extractSentence('bank', paragraph)).toBe(
+      'The bank of the river was muddy.'
+    )
+    // collapses whitespace and falls back to the first sentence
+    expect(extractSentence('', 'First one.  Second two.')).toBe('First one.')
+    // caps very long input
+    expect(extractSentence('x', 'x'.repeat(500)).length).toBeLessThanOrEqual(
+      300
+    )
+  })
+
+  it('only sends the current sentence to the model', async () => {
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      const userMsg = body.messages[body.messages.length - 1].content
+      expect(userMsg).toContain('The bank of the river was muddy.')
+      expect(userMsg).not.toContain('Sentence three follows')
+      return [200, { choices: [{ message: { content: 'ok' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: 'bank',
+      from: 'en',
+      to: 'zh-CN',
+      sentence:
+        'Sentence one is here. The bank of the river was muddy. Sentence three follows.'
+    })
+
+    mock.restore()
   })
 
   it('retries with the renamed token param when the provider rejects it', async () => {

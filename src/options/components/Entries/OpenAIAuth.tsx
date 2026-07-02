@@ -110,7 +110,7 @@ export function getOpenAIAuthItems(
           <code>model</code>
         </span>
       ),
-      children: <Input autoComplete="off" placeholder="gpt-5.4-mini" />
+      children: <Input autoComplete="off" placeholder="gpt-5.4-nano" />
     },
     {
       name: configPath + '.systemPrompt',

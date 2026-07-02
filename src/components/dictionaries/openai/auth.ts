@@ -1,5 +1,5 @@
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
-export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini'
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-nano'
 export const DEFAULT_OPENAI_TEMPERATURE = '0'
 
 export const DEFAULT_OPENAI_SYSTEM_PROMPT = `You are an English study assistant embedded in a browser dictionary. The user selects text on a web page; help them understand it in the requested target language.
@@ -57,7 +57,10 @@ export const url = 'https://platform.openai.com/docs/api-reference/chat'
  * never customised these fields (their stored value still equals an old
  * default) to the current defaults, without touching manual edits.
  */
-export const LEGACY_OPENAI_MODELS: ReadonlyArray<string> = ['gpt-4o-mini']
+export const LEGACY_OPENAI_MODELS: ReadonlyArray<string> = [
+  'gpt-4o-mini',
+  'gpt-5.4-mini'
+]
 
 export const LEGACY_OPENAI_SYSTEM_PROMPTS: ReadonlyArray<string> = [
   `You are a highly efficient, professional translation engine. Your sole task is to translate the input text precisely according to the requested target language.
