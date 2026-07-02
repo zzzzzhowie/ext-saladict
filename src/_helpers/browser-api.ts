@@ -375,10 +375,45 @@ export function isExtensionContextInvalidatedError(error: unknown): boolean {
       : null
   return !!(
     runtimeError &&
-    /Extension context (invalidated|was invalidated)/i.test(
+    // "Extension context invalidated" is the reload message; after teardown
+    // `browser.runtime` itself becomes undefined, so calling `.sendMessage`
+    // throws "Cannot read properties of undefined (reading 'sendMessage')".
+    /Extension context (invalidated|was invalidated)|(undefined|null).*sendMessage/i.test(
       runtimeError.message
     )
   )
+}
+
+/**
+ * Install a global suppressor for benign "extension context invalidated"
+ * rejections/errors. After the extension is reloaded, the old content script
+ * keeps running as a zombie and every `browser.*` call it makes fails; these
+ * are unrecoverable noise, so we swallow them page-wide (only the specific
+ * teardown messages — real errors still surface).
+ */
+export function installContextInvalidatedSuppressor(): void {
+  if (typeof window === 'undefined') return
+
+  const isBenign = (reason: unknown): boolean => {
+    const msg =
+      (reason && typeof reason === 'object' && (reason as any).message) ||
+      String(reason || '')
+    return /Extension context (invalidated|was invalidated)|(undefined|null).*sendMessage|Receiving end does not exist|Could not establish connection|No tab with id/i.test(
+      String(msg)
+    )
+  }
+
+  window.addEventListener('unhandledrejection', event => {
+    if (isBenign((event as PromiseRejectionEvent).reason)) {
+      event.preventDefault()
+    }
+  })
+  window.addEventListener('error', event => {
+    const e = event as ErrorEvent
+    if (isBenign(e.error || e.message)) {
+      event.preventDefault()
+    }
+  })
 }
 
 function wrapMessageError<T extends MsgType>(

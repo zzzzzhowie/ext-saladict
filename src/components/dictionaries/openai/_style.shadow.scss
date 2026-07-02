@@ -47,3 +47,11 @@
     font-family: monospace;
   }
 }
+
+// The OpenAI logo is solid black, invisible on the dark-mode panel — invert it
+// to white. Scoped to this dict's header via the dictItemHead--openai class.
+.dictItemHead--openai .dictItemHead-Logo {
+  @include isDarkMode {
+    filter: invert(1);
+  }
+}
