@@ -358,6 +358,29 @@ function createMessageCallContext(
   return callContext
 }
 
+/**
+ * True when the error is "Extension context invalidated" — the extension was
+ * reloaded/updated while an old content script kept running. The context is
+ * dead and unrecoverable, so sends should resolve quietly instead of throwing
+ * an uncaught rejection.
+ */
+export function isExtensionContextInvalidatedError(error: unknown): boolean {
+  const runtimeError =
+    error &&
+    typeof error === 'object' &&
+    error['runtimeLastError'] instanceof Error
+      ? error['runtimeLastError']
+      : error instanceof Error
+      ? error
+      : null
+  return !!(
+    runtimeError &&
+    /Extension context (invalidated|was invalidated)/i.test(
+      runtimeError.message
+    )
+  )
+}
+
 function wrapMessageError<T extends MsgType>(
   method: MessageSendMethod,
   args: MessageSendArgs<T>,
@@ -446,6 +469,9 @@ function messageSend<T extends MsgType>(
       validateMessageResponse('message.send', args, response, callContext)
     )
     .catch(err => {
+      if (isExtensionContextInvalidatedError(err)) {
+        return undefined as any
+      }
       throw wrapMessageError('message.send', args, err, callContext)
     })
 }
@@ -479,9 +505,15 @@ async function messageSendSelf<T extends MsgType, R = undefined>(
           ) as any
       )
       .catch(err => {
+        if (isExtensionContextInvalidatedError(err)) {
+          return undefined as any
+        }
         throw wrapMessageError('message.self.send', [message], err, callContext)
       })
   } catch (err) {
+    if (isExtensionContextInvalidatedError(err)) {
+      return undefined as any
+    }
     throw wrapMessageError('message.self.send', [message], err, callContext)
   }
 }
