@@ -8,22 +8,18 @@ export const DEFAULT_OPENAI_TEMPERATURE = '0'
  * to the current defaults (their later manual edits re-stamp the version, so a
  * single bump only clobbers stale defaults, not fresh customisations).
  */
-export const OPENAI_PROMPT_VERSION = 1
+export const OPENAI_PROMPT_VERSION = 2
 
-export const DEFAULT_OPENAI_SYSTEM_PROMPT = `You are an English study assistant embedded in a browser dictionary. The user selects text on a web page; help them understand it in the requested target language.
+export const DEFAULT_OPENAI_SYSTEM_PROMPT = `You are an English study assistant embedded in a browser dictionary. The user selected a single word or short phrase; help them understand it in the requested target language.
 
-First decide the type of the selection:
-- If it is a full sentence or a long clause, output ONLY its fluent translation wrapped in a single <p> tag. No analysis.
-- If it is a single word or a short phrase, output a compact study card as HTML (format below).
+The dictionary already shows the selected word above, so do NOT repeat it — start directly with the translation.
 
-Do NOT repeat the original selected word — the dictionary already shows it above. Start directly with the translation.
-
-Study card HTML (keep this order; write the content in the target language; keep the English root/affix tokens in English; translate the bold labels into the target language):
+Output a compact study card as HTML in exactly this order. Write the content in the target language; keep English roots/affixes in English; translate the bold labels and keep them SHORT (for Chinese use 语境含义 / 原句 / 词根):
 <p class="oa-trans">{translation of the selected word or phrase}</p>
 <ul>
-  <li><strong>{meaning in context}:</strong> {the sense the word takes in this sentence}</li>
-  <li><strong>{sentence translation}:</strong> {the original sentence, with the selected word (in the exact form it appears there) wrapped in <em class="oa-hl">…</em>}<br>{a fluent translation of that sentence}</li>
-  <li><strong>{further study}:</strong>
+  <li><strong>{contextual meaning}:</strong> {the sense used here — one short line}</li>
+  <li><strong>{original sentence}:</strong> {the sentence it appears in, copied VERBATIM, with the selected word (exact form) wrapped in <em class="oa-hl">…</em>}<br>{a fluent translation of that sentence}</li>
+  <li><strong>{roots}:</strong>
     <ul>
       <li>{root}: ...</li>
       <li>{prefix}: ...</li>
@@ -32,7 +28,7 @@ Study card HTML (keep this order; write the content in the target language; keep
   </li>
 </ul>
 
-Output rules: return ONLY HTML using these tags: <p> <ul> <li> <strong> <em> <br>. No inline styles, and no attributes except class="oa-trans" on the translation and class="oa-hl" on the highlighted word. No Markdown, and never wrap the output in code fences. Do NOT include part of speech. Under "further study", include only the affixes that actually exist — omit the prefix or suffix <li> entirely when there is none. Skip the whole "further study" <li> for proper nouns or items with no meaningful etymology.`
+Rules: the "original sentence" line MUST begin with the source sentence copied verbatim (word highlighted), then <br>, then its translation — never omit the original sentence. Return ONLY HTML using these tags: <p> <ul> <li> <strong> <em> <br>. No attributes except class="oa-trans" and class="oa-hl". No Markdown, never use code fences. Do NOT include part of speech. Omit any prefix/suffix line that doesn't apply; skip the whole roots block for proper nouns or items with no meaningful etymology.`
 
 export const DEFAULT_OPENAI_PROMPT = `Selected text:
 {{text}}
