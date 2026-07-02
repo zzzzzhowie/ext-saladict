@@ -118,6 +118,29 @@ export function extractSentence(selection: string, context: string): string {
   return hit.trim().slice(0, MAX_INPUT_LEN)
 }
 
+/**
+ * Two lookup modes, decided deterministically here (not left to the model,
+ * which misclassifies with small models):
+ *   - word / short phrase -> study card (meaning, sentence, further study)
+ *   - sentence / paragraph -> translation only
+ * A selection is a word/phrase only when it has no sentence-ending punctuation,
+ * is short, and has few words; otherwise it is treated as a sentence/paragraph.
+ */
+export function isWordOrPhrase(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  if (/[.!?。！？…]/.test(t)) return false
+  if (t.length > 40) return false
+  return t.split(/\s+/).filter(Boolean).length <= 6
+}
+
+/** Forced prompts for the "sentence / paragraph -> translate only" mode. */
+export const TRANSLATE_ONLY_SYSTEM_PROMPT = `You are a translation engine. Translate the user's text into the target language and output ONLY the translation wrapped in a single <p> tag — no analysis, no notes, no the original text, no romanization, no Markdown, never use code fences.`
+const TRANSLATE_ONLY_PROMPT = `Target language: {{to}}
+
+Text:
+{{text}}`
+
 export function buildChatCompletionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
   return /\/chat\/completions$/i.test(trimmed)
@@ -152,19 +175,26 @@ export async function openaiTranslate(
     maxTokens
   } = input
 
-  const messages: Array<{ role: string; content: string }> = []
-  if (systemPrompt.trim()) {
-    messages.push({ role: 'system', content: systemPrompt })
-  }
   // The selection is what the user wants translated — always pass it in FULL
   // (a whole selected paragraph must be translated completely, never cut).
   // Only the CONTEXT is trimmed: when the selection is a single word/phrase,
   // feed just the sentence that word sits in, not the surrounding paragraph.
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
+
+  // Mode is decided in code: word/phrase -> study card (user's prompts);
+  // sentence/paragraph -> translation only (forced prompts).
+  const wordMode = isWordOrPhrase(selection)
+  const sysPrompt = wordMode ? systemPrompt : TRANSLATE_ONLY_SYSTEM_PROMPT
+  const userPrompt = wordMode ? prompt : TRANSLATE_ONLY_PROMPT
+
+  const messages: Array<{ role: string; content: string }> = []
+  if (sysPrompt.trim()) {
+    messages.push({ role: 'system', content: sysPrompt })
+  }
   messages.push({
     role: 'user',
-    content: fillTemplate(prompt, {
+    content: fillTemplate(userPrompt, {
       text: selection,
       from: input.from,
       to: input.to,

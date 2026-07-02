@@ -6,6 +6,7 @@ import {
   buildChatCompletionsUrl,
   extractSentence,
   isNewOpenAIModel,
+  isWordOrPhrase,
   openaiTranslate,
   resolveOpenAIConfig,
   search,
@@ -327,6 +328,56 @@ describe('openai translator', () => {
 
     expect(translated).toBe('ok')
     expect(calls).toBe(2)
+    mock.restore()
+  })
+
+  it('classifies word/phrase vs sentence/paragraph', () => {
+    expect(isWordOrPhrase('bank')).toBe(true)
+    expect(isWordOrPhrase('machine learning')).toBe(true)
+    expect(isWordOrPhrase('kick the bucket')).toBe(true)
+    // sentence-ending punctuation -> not a phrase
+    expect(isWordOrPhrase('The bank of the river was muddy.')).toBe(false)
+    // long run of words -> not a phrase
+    expect(isWordOrPhrase('one two three four five six seven eight')).toBe(false)
+  })
+
+  it('uses the study-card prompt for a word (mode 1)', async () => {
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      // the user's configured (card) system prompt is used
+      expect(body.messages[0].content).toContain('study assistant')
+      return [200, { choices: [{ message: { content: '<p>x</p>' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: 'bank',
+      from: 'en',
+      to: 'zh-CN',
+      sentence: 'The bank of the river was muddy.'
+    })
+
+    mock.restore()
+  })
+
+  it('forces translate-only for a sentence/paragraph (mode 2)', async () => {
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      // translate-only system prompt, not the study card
+      expect(body.messages[0].content).toContain('translation engine')
+      expect(body.messages[0].content).not.toContain('study assistant')
+      return [200, { choices: [{ message: { content: '<p>译文</p>' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: 'The bank of the river was muddy, and the boat drifted away slowly.',
+      from: 'en',
+      to: 'zh-CN'
+    })
+
     mock.restore()
   })
 
