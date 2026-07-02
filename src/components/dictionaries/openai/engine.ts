@@ -98,7 +98,8 @@ function fillTemplate(
     .replace(/\{\{\s*sentence\s*\}\}/g, vars.sentence)
 }
 
-/** Max chars of selection / context sent to the model. Keeps requests fast. */
+/** Max chars of the CONTEXT sentence sent to the model (the selection itself
+ * is never capped — a selected paragraph must be translated in full). */
 export const MAX_INPUT_LEN = 300
 
 /**
@@ -155,12 +156,16 @@ export async function openaiTranslate(
   if (systemPrompt.trim()) {
     messages.push({ role: 'system', content: systemPrompt })
   }
-  // Only feed the current sentence (not the whole paragraph) to keep it fast.
-  const sentence = extractSentence(input.text, input.sentence || input.text)
+  // The selection is what the user wants translated — always pass it in FULL
+  // (a whole selected paragraph must be translated completely, never cut).
+  // Only the CONTEXT is trimmed: when the selection is a single word/phrase,
+  // feed just the sentence that word sits in, not the surrounding paragraph.
+  const selection = input.text.trim()
+  const sentence = extractSentence(selection, input.sentence || selection)
   messages.push({
     role: 'user',
     content: fillTemplate(prompt, {
-      text: input.text.trim().slice(0, MAX_INPUT_LEN),
+      text: selection,
       from: input.from,
       to: input.to,
       sentence

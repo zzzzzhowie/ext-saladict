@@ -159,6 +159,28 @@ describe('openai translator', () => {
     )
   })
 
+  it('translates a whole selected paragraph in full (never truncates it)', async () => {
+    const paragraph = ('This is a long paragraph. ' + 'word '.repeat(200)).trim()
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      const userMsg = body.messages[body.messages.length - 1].content
+      // the full selection must be present, uncut
+      expect(userMsg).toContain(paragraph)
+      return [200, { choices: [{ message: { content: 'ok' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: paragraph,
+      from: 'en',
+      to: 'zh-CN',
+      sentence: paragraph
+    })
+
+    mock.restore()
+  })
+
   it('only sends the current sentence to the model', async () => {
     const mock = new AxiosMockAdapter(axios)
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
