@@ -84,6 +84,19 @@ describe('mergeConfig', () => {
     )
   })
 
+  it('restores an empty OpenAI prompt to the current default', () => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    oldConfig.dictAuth.openai.systemPrompt = ''
+    oldConfig.dictAuth.openai.prompt = ''
+
+    const merged = mergeConfig(oldConfig)
+
+    expect(merged.dictAuth.openai.systemPrompt).toBe(
+      DEFAULT_OPENAI_SYSTEM_PROMPT
+    )
+    expect(merged.dictAuth.openai.prompt).toBe(DEFAULT_OPENAI_PROMPT)
+  })
+
   it('keeps new machine translators aligned with default language behavior', () => {
     const profile = getDefaultProfile()
 

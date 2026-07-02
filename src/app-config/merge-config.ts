@@ -20,6 +20,7 @@ import {
   LEGACY_OPENAI_PROMPTS,
   LEGACY_OPENAI_SYSTEM_PROMPTS
 } from '@/components/dictionaries/openai/auth'
+import { DEFAULT_DEEPL_AUTH_KEY } from '@/components/dictionaries/deepl/auth'
 
 export default mergeConfig
 
@@ -235,12 +236,26 @@ export function mergeConfig(
     if (LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
       openaiAuth.model = DEFAULT_OPENAI_MODEL
     }
-    if (LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt)) {
+    // Restore to the current default when the stored value is a former default
+    // (never customised) or empty — covers configs stuck on an old build's prompt.
+    if (
+      !openaiAuth.systemPrompt ||
+      LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt)
+    ) {
       openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
     }
-    if (LEGACY_OPENAI_PROMPTS.includes(openaiAuth.prompt)) {
+    if (
+      !openaiAuth.prompt ||
+      LEGACY_OPENAI_PROMPTS.includes(openaiAuth.prompt)
+    ) {
       openaiAuth.prompt = DEFAULT_OPENAI_PROMPT
     }
+  }
+
+  // Fill in the built-in DeepL auth key (from .env) when the user has none.
+  const deeplAuth = base.dictAuth.deepl
+  if (deeplAuth && !deeplAuth.authKey && DEFAULT_DEEPL_AUTH_KEY) {
+    deeplAuth.authKey = DEFAULT_DEEPL_AUTH_KEY
   }
   /* ----------------------------------------------- *\
       Post-merge Patch End
