@@ -10,6 +10,7 @@ import { getDefaultProfile } from '@/app-config/profiles'
 import {
   buildChatCompletionsUrl,
   extractSentence,
+  isChineseText,
   isNewOpenAIModel,
   isWordOrPhrase,
   openaiStream,
@@ -399,6 +400,38 @@ describe('openai translator', () => {
       from: 'en',
       to: 'zh-CN',
       sentence: 'The bank of the river was muddy.'
+    })
+
+    mock.restore()
+  })
+
+  it('detects Chinese and classifies short CJK as a phrase', () => {
+    expect(isChineseText('苹果')).toBe(true)
+    expect(isChineseText('apple')).toBe(false)
+    expect(isWordOrPhrase('苹果')).toBe(true)
+    expect(isWordOrPhrase('人工智能')).toBe(true)
+    // a long space-less CJK run is a sentence, not a term
+    expect(isWordOrPhrase('我今天心情不太好还有点累')).toBe(false)
+    // long single English word is still a word
+    expect(isWordOrPhrase('internationalization')).toBe(true)
+  })
+
+  it('lists English equivalents for a Chinese word (mode 3)', async () => {
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      // the Chinese->English system prompt, not the study card
+      expect(body.messages[0].content).toContain('English word')
+      expect(body.messages[0].content).not.toContain('study assistant')
+      expect(body.messages[0].content).not.toContain('translation engine')
+      return [200, { choices: [{ message: { content: '<p>apple</p>' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: '苹果',
+      from: 'zh-CN',
+      to: 'zh-CN'
     })
 
     mock.restore()

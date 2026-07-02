@@ -121,10 +121,11 @@ export function extractSentence(selection: string, context: string): string {
 }
 
 /**
- * Two lookup modes, decided deterministically here (not left to the model,
+ * Three lookup modes, decided deterministically here (not left to the model,
  * which misclassifies with small models):
- *   - word / short phrase -> study card (meaning, sentence, further study)
- *   - sentence / paragraph -> translation only
+ *   - English word / short phrase -> study card (meaning, sentence, roots)
+ *   - Chinese word / short phrase  -> English equivalents + usage
+ *   - sentence / paragraph (any)   -> translation only
  * A selection is a word/phrase only when it has no sentence-ending punctuation,
  * is short, and has few words; otherwise it is treated as a sentence/paragraph.
  */
@@ -133,7 +134,18 @@ export function isWordOrPhrase(text: string): boolean {
   if (!t) return true
   if (/[.!?。！？…]/.test(t)) return false
   if (t.length > 40) return false
-  return t.split(/\s+/).filter(Boolean).length <= 6
+  const words = t.split(/\s+/).filter(Boolean)
+  if (words.length > 6) return false
+  // Space-less CJK can't be gauged by word count; a long run is a sentence.
+  if (words.length === 1 && /[一-鿿぀-ヿ]/.test(t) && t.length > 8) {
+    return false
+  }
+  return true
+}
+
+/** Whether the selection is (mostly) Chinese — routes to the C→E mode. */
+export function isChineseText(text: string): boolean {
+  return /[一-鿿]/.test(text)
 }
 
 /** Forced prompts for the "sentence / paragraph -> translate only" mode. */
@@ -142,6 +154,20 @@ const TRANSLATE_ONLY_PROMPT = `Target language: {{to}}
 
 Text:
 {{text}}`
+
+/** Forced prompts for the "Chinese word/phrase -> English equivalents" mode. */
+export const CHINESE_TO_ENGLISH_SYSTEM_PROMPT = `The user selected a Chinese word or phrase and wants to know the English word(s) for it. List the best-fitting English equivalents — at most 3, fewer if only one or two truly fit — and for each briefly explain, in the target language, how or when it is used (especially when the Chinese maps to several distinct English senses). Do NOT include etymology, word roots, or any original sentence.
+
+Output ONLY HTML in this order (keep the English words in English; write the notes in the target language):
+<p class="oa-trans">{the single best English equivalent}</p>
+<ul>
+  <li><strong>{English option 1}:</strong> {short usage note}</li>
+  <li><strong>{English option 2}:</strong> {short usage note}</li>
+</ul>
+Allowed tags: <p> <ul> <li> <strong> <em> <br>; the only attribute is class="oa-trans" on the first line. List at most 3 options. No Markdown, never use code fences.`
+const CHINESE_TO_ENGLISH_PROMPT = `Chinese word/phrase: {{text}}
+
+Explain in: {{to}}`
 
 export function buildChatCompletionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
@@ -189,13 +215,22 @@ function buildChatMessages(
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
 
-  // Mode decided in code: word/phrase -> study card (user's prompts);
-  // sentence/paragraph -> translation only (forced prompts).
-  const wordMode = isWordOrPhrase(selection)
-  const sysPrompt = wordMode
-    ? resolved.systemPrompt
-    : TRANSLATE_ONLY_SYSTEM_PROMPT
-  const userPrompt = wordMode ? resolved.prompt : TRANSLATE_ONLY_PROMPT
+  // Mode decided in code:
+  //   sentence/paragraph  -> translation only
+  //   Chinese word/phrase -> English equivalents + usage
+  //   English word/phrase -> study card (user's prompts)
+  let sysPrompt: string
+  let userPrompt: string
+  if (!isWordOrPhrase(selection)) {
+    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
+    userPrompt = TRANSLATE_ONLY_PROMPT
+  } else if (isChineseText(selection)) {
+    sysPrompt = CHINESE_TO_ENGLISH_SYSTEM_PROMPT
+    userPrompt = CHINESE_TO_ENGLISH_PROMPT
+  } else {
+    sysPrompt = resolved.systemPrompt
+    userPrompt = resolved.prompt
+  }
 
   const messages: Array<{ role: string; content: string }> = []
   if (sysPrompt.trim()) {
