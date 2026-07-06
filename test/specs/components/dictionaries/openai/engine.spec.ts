@@ -10,9 +10,7 @@ import { getDefaultProfile } from '@/app-config/profiles'
 import {
   buildChatCompletionsUrl,
   extractSentence,
-  isChineseText,
   isNewOpenAIModel,
-  isWordOrPhrase,
   openaiStream,
   openaiTranslate,
   resolveOpenAIConfig,
@@ -169,7 +167,9 @@ describe('openai translator', () => {
   })
 
   it('translates a whole selected paragraph in full (never truncates it)', async () => {
-    const paragraph = ('This is a long paragraph. ' + 'word '.repeat(200)).trim()
+    const paragraph = (
+      'This is a long paragraph. ' + 'word '.repeat(200)
+    ).trim()
     const mock = new AxiosMockAdapter(axios)
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
       const body = JSON.parse(config.data)
@@ -375,106 +375,28 @@ describe('openai translator', () => {
     mock.restore()
   })
 
-  it('classifies word/phrase vs sentence/paragraph', () => {
-    expect(isWordOrPhrase('bank')).toBe(true)
-    expect(isWordOrPhrase('machine learning')).toBe(true)
-    expect(isWordOrPhrase('kick the bucket')).toBe(true)
-    // sentence-ending punctuation -> not a phrase
-    expect(isWordOrPhrase('The bank of the river was muddy.')).toBe(false)
-    // long run of words -> not a phrase
-    expect(isWordOrPhrase('one two three four five six seven eight')).toBe(false)
-  })
-
-  it('uses the study-card prompt for a word (mode 1)', async () => {
+  it('always uses the configured systemPrompt/prompt (no hardcoded modes)', async () => {
     const mock = new AxiosMockAdapter(axios)
+    let captured: any
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
-      const body = JSON.parse(config.data)
-      // the user's configured (card) system prompt is used
-      expect(body.messages[0].content).toContain('study assistant')
+      captured = JSON.parse(config.data)
       return [200, { choices: [{ message: { content: '<p>x</p>' } }] }]
     })
 
+    // a Chinese selection must still go through the user's configured prompt
     await openaiTranslate({
-      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
-      text: 'bank',
-      from: 'en',
-      to: 'zh-CN',
-      sentence: 'The bank of the river was muddy.'
-    })
-
-    mock.restore()
-  })
-
-  it('detects Chinese and classifies short CJK as a phrase', () => {
-    expect(isChineseText('苹果')).toBe(true)
-    expect(isChineseText('apple')).toBe(false)
-    expect(isWordOrPhrase('苹果')).toBe(true)
-    expect(isWordOrPhrase('人工智能')).toBe(true)
-    // a long space-less CJK run is a sentence, not a term
-    expect(isWordOrPhrase('我今天心情不太好还有点累')).toBe(false)
-    // long single English word is still a word
-    expect(isWordOrPhrase('internationalization')).toBe(true)
-  })
-
-  it('lists English equivalents for a Chinese word (mode 3)', async () => {
-    const mock = new AxiosMockAdapter(axios)
-    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
-      const body = JSON.parse(config.data)
-      // the Chinese->English system prompt, not the study card
-      expect(body.messages[0].content).toContain('English word')
-      expect(body.messages[0].content).not.toContain('study assistant')
-      expect(body.messages[0].content).not.toContain('translation engine')
-      return [200, { choices: [{ message: { content: '<p>apple</p>' } }] }]
-    })
-
-    await openaiTranslate({
-      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      ...resolveOpenAIConfig({
+        apiKey: 'sk-xxx',
+        systemPrompt: 'MY CUSTOM SYSTEM',
+        prompt: 'translate {{text}}'
+      }),
       text: '苹果',
       from: 'zh-CN',
-      to: 'zh-CN'
+      to: 'en'
     })
 
-    mock.restore()
-  })
-
-  it('translates mixed/clause Chinese to English (not equivalents)', async () => {
-    const mock = new AxiosMockAdapter(axios)
-    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
-      const body = JSON.parse(config.data)
-      // translate-only engine, forced to English, NOT the equivalents card
-      expect(body.messages[0].content).toContain('translation engine')
-      expect(body.messages[0].content).not.toContain('English word')
-      expect(body.messages[1].content).toContain('English')
-      return [200, { choices: [{ message: { content: '<p>ok</p>' } }] }]
-    })
-
-    await openaiTranslate({
-      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
-      text: 'ui 太挤了',
-      from: 'zh-CN',
-      to: 'zh-CN'
-    })
-
-    mock.restore()
-  })
-
-  it('forces translate-only for a sentence/paragraph (mode 2)', async () => {
-    const mock = new AxiosMockAdapter(axios)
-    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
-      const body = JSON.parse(config.data)
-      // translate-only system prompt, not the study card
-      expect(body.messages[0].content).toContain('translation engine')
-      expect(body.messages[0].content).not.toContain('study assistant')
-      return [200, { choices: [{ message: { content: '<p>译文</p>' } }] }]
-    })
-
-    await openaiTranslate({
-      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
-      text: 'The bank of the river was muddy, and the boat drifted away slowly.',
-      from: 'en',
-      to: 'zh-CN'
-    })
-
+    expect(captured.messages[0].content).toBe('MY CUSTOM SYSTEM')
+    expect(captured.messages[1].content).toContain('苹果')
     mock.restore()
   })
 

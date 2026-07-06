@@ -120,55 +120,6 @@ export function extractSentence(selection: string, context: string): string {
   return hit.trim().slice(0, MAX_INPUT_LEN)
 }
 
-/**
- * Three lookup modes, decided deterministically here (not left to the model,
- * which misclassifies with small models):
- *   - English word / short phrase -> study card (meaning, sentence, roots)
- *   - Chinese word / short phrase  -> English equivalents + usage
- *   - sentence / paragraph (any)   -> translation only
- * A selection is a word/phrase only when it has no sentence-ending punctuation,
- * is short, and has few words; otherwise it is treated as a sentence/paragraph.
- */
-export function isWordOrPhrase(text: string): boolean {
-  const t = text.trim()
-  if (!t) return true
-  if (/[.!?。！？…]/.test(t)) return false
-  if (t.length > 40) return false
-  const words = t.split(/\s+/).filter(Boolean)
-  if (words.length > 6) return false
-  // Space-less CJK can't be gauged by word count; a long run is a sentence.
-  if (words.length === 1 && /[一-鿿぀-ヿ]/.test(t) && t.length > 8) {
-    return false
-  }
-  return true
-}
-
-/** Whether the selection is (mostly) Chinese — routes to the C→E mode. */
-export function isChineseText(text: string): boolean {
-  return /[一-鿿]/.test(text)
-}
-
-/** Forced prompts for the "sentence / paragraph -> translate only" mode. */
-export const TRANSLATE_ONLY_SYSTEM_PROMPT = `You are a translation engine. Translate the user's text into the target language and output ONLY the translation wrapped in a single <p> tag — no analysis, no notes, no the original text, no romanization, no Markdown, never use code fences.`
-const TRANSLATE_ONLY_PROMPT = `Target language: {{to}}
-
-Text:
-{{text}}`
-
-/** Forced prompts for the "Chinese word/phrase -> English equivalents" mode. */
-export const CHINESE_TO_ENGLISH_SYSTEM_PROMPT = `The user selected a Chinese word or phrase and wants to know the English word(s) for it. List the best-fitting English equivalents — at most 3, fewer if only one or two truly fit — and for each briefly explain IN CHINESE how or when it is used (especially when the Chinese maps to several distinct English senses). Do NOT include etymology, word roots, or any original sentence.
-
-Output ONLY HTML in this order (keep the English words in English; write ALL notes/explanations in Chinese):
-<p class="oa-trans">{the single best English equivalent}</p>
-<ul>
-  <li><strong>{English option 1}:</strong> {用法说明（中文）}</li>
-  <li><strong>{English option 2}:</strong> {用法说明（中文）}</li>
-</ul>
-Allowed tags: <p> <ul> <li> <strong> <em> <br>; the only attribute is class="oa-trans" on the first line. List at most 3 options. No Markdown, never use code fences.`
-const CHINESE_TO_ENGLISH_PROMPT = `Chinese word/phrase: {{text}}
-
-Explain the usage in Chinese.`
-
 export function buildChatCompletionsUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
   return /\/chat\/completions$/i.test(trimmed)
@@ -210,50 +161,24 @@ function buildChatMessages(
   resolved: ResolvedOpenAIConfig,
   input: { text: string; from: string; to: string; sentence?: string }
 ): Array<{ role: string; content: string }> {
-  // The selection is what the user wants translated — always passed in FULL.
-  // Only the CONTEXT is trimmed to the sentence around a single word/phrase.
+  // Everything is driven by the user-configurable systemPrompt/prompt — no
+  // mode logic is hardcoded here. The prompt itself decides how to handle
+  // words / sentences / Chinese input (see the default systemPrompt).
+  // The selection is passed in FULL; only the CONTEXT ({{sentence}}) is trimmed
+  // to the sentence around the selection.
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
 
-  const chinese = isChineseText(selection)
-  // A single Chinese term = pure CJK, no spaces, no Latin letters (苹果, 尴尬).
-  const pureChineseTerm =
-    chinese && !/\s/.test(selection) && !/[a-zA-Z]/.test(selection)
-
-  // Mode decided in code:
-  //   Chinese term (word)        -> English equivalents + usage
-  //   any other Chinese content  -> translate to English
-  //   English sentence/paragraph -> translate to target language
-  //   English word/phrase        -> study card (user's prompts)
-  let sysPrompt: string
-  let userPrompt: string
-  let to = input.to
-  if (pureChineseTerm && isWordOrPhrase(selection)) {
-    sysPrompt = CHINESE_TO_ENGLISH_SYSTEM_PROMPT
-    userPrompt = CHINESE_TO_ENGLISH_PROMPT
-  } else if (chinese) {
-    // Chinese phrase/clause/sentence (incl. mixed like "ui 太挤了") -> English
-    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
-    userPrompt = TRANSLATE_ONLY_PROMPT
-    to = 'English'
-  } else if (!isWordOrPhrase(selection)) {
-    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
-    userPrompt = TRANSLATE_ONLY_PROMPT
-  } else {
-    sysPrompt = resolved.systemPrompt
-    userPrompt = resolved.prompt
-  }
-
   const messages: Array<{ role: string; content: string }> = []
-  if (sysPrompt.trim()) {
-    messages.push({ role: 'system', content: sysPrompt })
+  if (resolved.systemPrompt.trim()) {
+    messages.push({ role: 'system', content: resolved.systemPrompt })
   }
   messages.push({
     role: 'user',
-    content: fillTemplate(userPrompt, {
+    content: fillTemplate(resolved.prompt, {
       text: selection,
       from: input.from,
-      to,
+      to: input.to,
       sentence
     })
   })
