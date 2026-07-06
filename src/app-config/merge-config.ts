@@ -18,8 +18,7 @@ import {
   DEFAULT_OPENAI_SYSTEM_PROMPT,
   LEGACY_OPENAI_MODELS,
   LEGACY_OPENAI_PROMPTS,
-  LEGACY_OPENAI_SYSTEM_PROMPTS,
-  OPENAI_PROMPT_VERSION
+  LEGACY_OPENAI_SYSTEM_PROMPTS
 } from '@/components/dictionaries/openai/auth'
 import { DEFAULT_DEEPL_AUTH_KEY } from '@/components/dictionaries/deepl/auth'
 
@@ -230,29 +229,27 @@ export function mergeConfig(
     base.panelMaxHeightRatio = Math.round(base.panelMaxHeightRatio * 100)
   }
 
-  // Upgrade OpenAI config that still holds a previous default to the current
-  // defaults. Model uses the legacy-value list; prompts use a version stamp so
-  // any stale default (even ones predating the legacy list) is force-restored
-  // exactly once — later manual edits re-stamp the version and are preserved.
+  // Upgrade OpenAI config to the current defaults ONLY when the stored value is
+  // empty or still equals a previous built-in default (i.e. never customised).
+  // A user's own systemPrompt/prompt from the settings panel is always kept —
+  // never clobber it.
   const openaiAuth = base.dictAuth.openai
   if (openaiAuth) {
     if (LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
       openaiAuth.model = DEFAULT_OPENAI_MODEL
     }
-    const storedPromptVersion = (oldConfig.dictAuth as any).openai
-      ? (oldConfig.dictAuth as any).openai.promptVersion
-      : undefined
     if (
-      storedPromptVersion !== OPENAI_PROMPT_VERSION ||
       !openaiAuth.systemPrompt ||
-      LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt) ||
+      LEGACY_OPENAI_SYSTEM_PROMPTS.includes(openaiAuth.systemPrompt)
+    ) {
+      openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
+    }
+    if (
       !openaiAuth.prompt ||
       LEGACY_OPENAI_PROMPTS.includes(openaiAuth.prompt)
     ) {
-      openaiAuth.systemPrompt = DEFAULT_OPENAI_SYSTEM_PROMPT
       openaiAuth.prompt = DEFAULT_OPENAI_PROMPT
     }
-    openaiAuth.promptVersion = OPENAI_PROMPT_VERSION
   }
 
   // Fill in the built-in DeepL auth key (from .env) when the user has none.
