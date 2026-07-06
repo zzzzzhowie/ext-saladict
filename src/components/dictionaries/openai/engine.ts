@@ -215,18 +215,30 @@ function buildChatMessages(
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
 
+  const chinese = isChineseText(selection)
+  // A single Chinese term = pure CJK, no spaces, no Latin letters (苹果, 尴尬).
+  const pureChineseTerm =
+    chinese && !/\s/.test(selection) && !/[a-zA-Z]/.test(selection)
+
   // Mode decided in code:
-  //   sentence/paragraph  -> translation only
-  //   Chinese word/phrase -> English equivalents + usage
-  //   English word/phrase -> study card (user's prompts)
+  //   Chinese term (word)        -> English equivalents + usage
+  //   any other Chinese content  -> translate to English
+  //   English sentence/paragraph -> translate to target language
+  //   English word/phrase        -> study card (user's prompts)
   let sysPrompt: string
   let userPrompt: string
-  if (!isWordOrPhrase(selection)) {
-    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
-    userPrompt = TRANSLATE_ONLY_PROMPT
-  } else if (isChineseText(selection)) {
+  let to = input.to
+  if (pureChineseTerm && isWordOrPhrase(selection)) {
     sysPrompt = CHINESE_TO_ENGLISH_SYSTEM_PROMPT
     userPrompt = CHINESE_TO_ENGLISH_PROMPT
+  } else if (chinese) {
+    // Chinese phrase/clause/sentence (incl. mixed like "ui 太挤了") -> English
+    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
+    userPrompt = TRANSLATE_ONLY_PROMPT
+    to = 'English'
+  } else if (!isWordOrPhrase(selection)) {
+    sysPrompt = TRANSLATE_ONLY_SYSTEM_PROMPT
+    userPrompt = TRANSLATE_ONLY_PROMPT
   } else {
     sysPrompt = resolved.systemPrompt
     userPrompt = resolved.prompt
@@ -241,7 +253,7 @@ function buildChatMessages(
     content: fillTemplate(userPrompt, {
       text: selection,
       from: input.from,
-      to: input.to,
+      to,
       sentence
     })
   })

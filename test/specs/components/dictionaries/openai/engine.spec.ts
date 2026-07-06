@@ -437,6 +437,27 @@ describe('openai translator', () => {
     mock.restore()
   })
 
+  it('translates mixed/clause Chinese to English (not equivalents)', async () => {
+    const mock = new AxiosMockAdapter(axios)
+    mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
+      const body = JSON.parse(config.data)
+      // translate-only engine, forced to English, NOT the equivalents card
+      expect(body.messages[0].content).toContain('translation engine')
+      expect(body.messages[0].content).not.toContain('English word')
+      expect(body.messages[1].content).toContain('English')
+      return [200, { choices: [{ message: { content: '<p>ok</p>' } }] }]
+    })
+
+    await openaiTranslate({
+      ...resolveOpenAIConfig({ apiKey: 'sk-xxx' }),
+      text: 'ui 太挤了',
+      from: 'zh-CN',
+      to: 'zh-CN'
+    })
+
+    mock.restore()
+  })
+
   it('forces translate-only for a sentence/paragraph (mode 2)', async () => {
     const mock = new AxiosMockAdapter(axios)
     mock.onPost('https://api.openai.com/v1/chat/completions').reply(config => {
