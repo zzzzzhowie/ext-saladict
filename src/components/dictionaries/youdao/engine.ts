@@ -12,6 +12,7 @@ import {
   removeChild
 } from '../helpers'
 import { DictConfigs } from '@/app-config'
+import { getTTS } from '../google/engine'
 
 export const getSrcPage: GetSrcPageFunction = text =>
   'https://dict.youdao.com/w/' + encodeURIComponent(text.replace(/\s+/g, ' '))
@@ -60,17 +61,18 @@ export const search: SearchFunction<YoudaoResult> = async (
     'https://dict.youdao.com/w/' + encodeURIComponent(text.replace(/\s+/g, ' '))
   )
     .catch(handleNetWorkError)
-    .then(doc => checkResult(doc, options, transform))
+    .then(doc => checkResult(text, doc, options, transform))
 }
 
 function checkResult(
+  text: string,
   doc: Document,
   options: DictConfigs['youdao']['options'],
   transform: null | ((text: string) => string)
 ): YoudaoSearchResult | Promise<YoudaoSearchResult> {
   const $typo = doc.querySelector('.error-typo')
   if (!$typo) {
-    return handleDOM(doc, options, transform)
+    return handleDOM(text, doc, options, transform)
   } else if (options.related) {
     return {
       result: {
@@ -82,11 +84,12 @@ function checkResult(
   return handleNoResult()
 }
 
-function handleDOM(
+async function handleDOM(
+  text: string,
   doc: Document,
   options: DictConfigs['youdao']['options'],
   transform: null | ((text: string) => string)
-): YoudaoSearchResult | Promise<YoudaoSearchResult> {
+): Promise<YoudaoSearchResult> {
   const result: YoudaoResult = {
     type: 'lex',
     title: getText(doc, '.keyword', transform),
@@ -111,15 +114,38 @@ function handleDOM(
       const url =
         'https://dict.youdao.com/dictvoice?audio=' + $voice.dataset.rel
 
-      result.prons.push({ phsym, url })
-
+      // Only keep Youdao's labelled 英/美 recordings. An unlabelled entry is
+      // Youdao's low-quality synthesizer (e.g. for terms like "Kubernetes"):
+      // don't render its bare speaker — the Google TTS fallback below replaces
+      // it, otherwise the card shows two speaker icons.
       if (phsym.includes('英')) {
         audio.uk = url
+        result.prons.push({ phsym, url })
       } else if (phsym.includes('美')) {
         audio.us = url
+        result.prons.push({ phsym, url })
       }
     }
   })
+
+  // Youdao only has recorded audio for words in its dictionary; technical/rare
+  // terms like "Kubernetes" have none, and Youdao's own synthesizer mangles
+  // them. Fall back to Google's neural TTS (an accurate US voice, the same
+  // source the Google dict uses) whenever Youdao has no US recording.
+  if (!audio.us) {
+    const word = text.trim()
+    if (word) {
+      try {
+        const usTTS = await getTTS(word, 'en')
+        if (usTTS) {
+          audio.us = usTTS
+          result.prons.push({ phsym: '美', url: usTTS })
+        }
+      } catch {
+        /* Google TTS unavailable — leave the card without US audio */
+      }
+    }
+  }
 
   if (options.basic) {
     result.basic = getInnerHTML(HOST, doc, {
