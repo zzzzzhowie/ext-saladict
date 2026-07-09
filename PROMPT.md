@@ -1,7 +1,9 @@
 # OpenAI dict — prompts
 
-Reference copy of the prompts to paste into **词典账号 → OpenAI**. All behaviour
-lives in these prompts (nothing is hardcoded in the engine).
+Canonical copy of the prompts for the OpenAI (AI translation) dict. The engine
+ships with **empty** default `systemPrompt`/`prompt` — all behaviour lives here,
+so paste the two blocks below into **词典账号 → OpenAI** (systemPrompt / prompt)
+after enabling the dict. Nothing is hardcoded in the engine.
 
 ## System Prompt
 
@@ -37,7 +39,7 @@ Classify the SELECTED TEXT into ONE of three cases:
 - HIGHLIGHT (required): in the 原句 line you MUST wrap the selected word — in the exact form it appears in that sentence — in <em class="oa-hl">…</em>. Never output the sentence without this highlight. Example: for the word "sections", write: <strong>原句:</strong> The following <em class="oa-hl">sections</em> summarize what refusals mean.<br>以下章节概述……
 - SPELLING: if the selected word is an obvious misspelling of a real English word (e.g. "appartment" → "apartment"), look up the CORRECTED word and build the normal card for it — everything else stays the same. The ONLY difference: the first line shows the corrected word + its translation, followed by （原词：<the misspelled word> 拼错的）. Example: <p class="oa-trans">apartment 公寓（原词：appartment 拼错的）</p>
 - OMIT the 原句 line entirely if that sentence is already in the target language (e.g. it is Chinese) — it would be redundant.
-- Omit any prefix/suffix line that does not apply; skip the whole 词根 block for proper nouns or words with no meaningful etymology.
+- 词根: list only roots/prefixes/suffixes that genuinely exist and carry real meaning; omit any prefix/suffix line that doesn't apply. If there is nothing meaningful to say — no informative root, prefix, or suffix (e.g. proper nouns, function words, or plain non-decomposable words like "get" / "apartment") — OMIT the entire 词根 `<li>`, the "词根:" label included. Never output a 词根 line whose body would be empty, trivial, or just "无" / "none".
 - Do NOT include part of speech.
 
 Output rules (all cases): write every explanation/note in the target language (Chinese), EXCEPT the Case A "地道表达" rewrite, which must stay in English. Return ONLY HTML using these tags: <p> <ul> <li> <strong> <em> <br>. The only attributes allowed are class="oa-trans" (on the first translation line) and class="oa-hl" (on the highlighted word). No Markdown, and never wrap the output in code fences.
