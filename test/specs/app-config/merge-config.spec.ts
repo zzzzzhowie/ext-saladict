@@ -2,10 +2,7 @@ import { AppConfigMutable, getDefaultConfig } from '@/app-config'
 import { mergeConfig } from '@/app-config/merge-config'
 import { getDefaultProfile } from '@/app-config/profiles'
 import {
-  DEFAULT_OPENAI_MODEL,
-  DEFAULT_OPENAI_PROMPT,
-  DEFAULT_OPENAI_SYSTEM_PROMPT,
-  LEGACY_OPENAI_SYSTEM_PROMPTS
+  DEFAULT_OPENAI_MODEL
 } from '@/components/dictionaries/openai/auth'
 
 describe('mergeConfig', () => {
@@ -65,19 +62,18 @@ describe('mergeConfig', () => {
     ])
   })
 
-  it('upgrades stale OpenAI defaults (legacy value or empty) to the current default', () => {
+  it('upgrades a legacy OpenAI model to the current default and leaves prompts untouched', () => {
     const oldConfig = getDefaultConfig() as AppConfigMutable
     oldConfig.dictAuth.openai.model = 'gpt-4o-mini'
-    oldConfig.dictAuth.openai.systemPrompt = LEGACY_OPENAI_SYSTEM_PROMPTS[0]
+    oldConfig.dictAuth.openai.systemPrompt = 'whatever the user had'
     oldConfig.dictAuth.openai.prompt = ''
 
     const merged = mergeConfig(oldConfig)
 
     expect(merged.dictAuth.openai.model).toBe(DEFAULT_OPENAI_MODEL)
-    expect(merged.dictAuth.openai.systemPrompt).toBe(
-      DEFAULT_OPENAI_SYSTEM_PROMPT
-    )
-    expect(merged.dictAuth.openai.prompt).toBe(DEFAULT_OPENAI_PROMPT)
+    // prompts are never migrated: empty stays empty, custom stays custom
+    expect(merged.dictAuth.openai.systemPrompt).toBe('whatever the user had')
+    expect(merged.dictAuth.openai.prompt).toBe('')
   })
 
   it('never clobbers a user-configured OpenAI prompt', () => {
