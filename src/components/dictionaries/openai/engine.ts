@@ -167,11 +167,11 @@ export function isSingleEnglishWord(text: string): boolean {
  * separate from the user's own prompt so it never interferes with it. */
 export const IPA_DIRECTIVE =
   'The user is looking up a single English word. On the VERY FIRST line of your ' +
-  "reply, before any other text or HTML, output that word's IPA phonetic " +
-  'transcription wrapped EXACTLY as [[IPA:…]] — e.g. [[IPA:UK /ˈpærɪti/ US ' +
-  '/ˈperəti/]] (drop an accent label if both are identical). Give the correct ' +
-  'pronunciation of the exact word form as written (e.g. an inflected form, not ' +
-  'its base form). Then continue with your normal answer.'
+  "reply, before any other text or HTML, output that word's American (US) IPA " +
+  'phonetic transcription wrapped EXACTLY as [[IPA:…]] — e.g. [[IPA:/ˈpærɪti/]]. ' +
+  'Use the US pronunciation only; do not include a UK transcription. Give the ' +
+  'correct pronunciation of the exact word form as written (e.g. an inflected ' +
+  'form, not its base form). Then continue with your normal answer.'
 
 /** Build the chat `messages` array, choosing the mode-appropriate prompts. */
 function buildChatMessages(
