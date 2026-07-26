@@ -169,9 +169,12 @@ export const IPA_DIRECTIVE =
   'The user is looking up a single English word. On the VERY FIRST line of your ' +
   "reply, before any other text or HTML, output that word's American (US) IPA " +
   'phonetic transcription wrapped EXACTLY as [[IPA:…]] — e.g. [[IPA:/ˈpærɪti/]]. ' +
-  'Use the US pronunciation only; do not include a UK transcription. Give the ' +
-  'correct pronunciation of the exact word form as written (e.g. an inflected ' +
-  'form, not its base form). Then continue with your normal answer.'
+  'Use US pronunciation only, not UK. If the word is a heteronym with more than ' +
+  'one distinct US pronunciation (e.g. live, read, bass, bow), include ALL of ' +
+  'them, each followed by a short part-of-speech or sense label in parentheses ' +
+  'and separated by " · " — e.g. [[IPA:/lɪv/ (v.) · /laɪv/ (adj.)]]. Give the ' +
+  'correct pronunciation of the exact word form as written (an inflected form, ' +
+  'not its base form). Then continue with your normal answer.'
 
 /** Build the chat `messages` array, choosing the mode-appropriate prompts. */
 function buildChatMessages(
