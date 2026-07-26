@@ -1,3 +1,36 @@
+.openai-pron {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 1.15em;
+
+  .openai-pron-word {
+    font-weight: 600;
+  }
+
+  .openai-pron-ipa {
+    color: var(--color-font);
+    font-family: 'Times New Roman', 'DejaVu Sans', serif;
+  }
+
+  .openai-pron-speaker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-brand);
+    cursor: pointer;
+    line-height: 1;
+
+    &:hover {
+      opacity: 0.75;
+    }
+  }
+}
+
 .openai-card {
   font-size: 1em;
   line-height: 1.6;

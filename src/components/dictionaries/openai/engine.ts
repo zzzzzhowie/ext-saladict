@@ -156,6 +156,23 @@ export async function openaiTranslate(
   return typeof content === 'string' ? stripCodeFences(content) : ''
 }
 
+/** A single English word — the only case where an IPA pronunciation line makes
+ * sense (skip phrases, sentences and CJK input). */
+export function isSingleEnglishWord(text: string): boolean {
+  return /^[a-z][a-z'’-]*$/i.test(text.trim())
+}
+
+/** Directive that makes the model prefix its reply with a machine-parseable IPA
+ * marker, which the View lifts out into a dedicated pronunciation line. Kept
+ * separate from the user's own prompt so it never interferes with it. */
+export const IPA_DIRECTIVE =
+  'The user is looking up a single English word. On the VERY FIRST line of your ' +
+  "reply, before any other text or HTML, output that word's IPA phonetic " +
+  'transcription wrapped EXACTLY as [[IPA:…]] — e.g. [[IPA:UK /ˈpærɪti/ US ' +
+  '/ˈperəti/]] (drop an accent label if both are identical). Give the correct ' +
+  'pronunciation of the exact word form as written (e.g. an inflected form, not ' +
+  'its base form). Then continue with your normal answer.'
+
 /** Build the chat `messages` array, choosing the mode-appropriate prompts. */
 function buildChatMessages(
   resolved: ResolvedOpenAIConfig,
@@ -172,6 +189,9 @@ function buildChatMessages(
   const messages: Array<{ role: string; content: string }> = []
   if (resolved.systemPrompt.trim()) {
     messages.push({ role: 'system', content: resolved.systemPrompt })
+  }
+  if (isSingleEnglishWord(selection)) {
+    messages.push({ role: 'system', content: IPA_DIRECTIVE })
   }
   messages.push({
     role: 'user',
