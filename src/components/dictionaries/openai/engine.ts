@@ -105,19 +105,39 @@ function fillTemplate(
 export const MAX_INPUT_LEN = 300
 
 /**
- * Reduce the captured context to the single sentence around the selection so
- * we never feed a whole paragraph to the model (slower and costlier). Picks
- * the sentence that contains the selected text; falls back to the first
- * sentence, and caps the length as a final guard.
+ * Reduce the captured context to the sentence(s) around the selection so we
+ * never feed a whole paragraph to the model (slower and costlier). Returns
+ * every sentence the selection overlaps — a selection can span more than one —
+ * falls back to the first sentence, and caps the length as a final guard.
+ *
+ * When there is no page context to reduce (quick-search box, word editor, or a
+ * failed capture) the caller passes the selection as its own context; the
+ * selection is never truncated, so it is handed back whole.
  */
 export function extractSentence(selection: string, context: string): string {
   const ctx = (context || '').replace(/\s+/g, ' ').trim()
   if (!ctx) return ''
-  const sentences = ctx.match(/[^.?!。？！…]+[.?!。？！…]*/g) || [ctx]
   const needle = (selection || '').replace(/\s+/g, ' ').trim()
-  const hit =
-    (needle && sentences.find(s => s.includes(needle))) || sentences[0]
-  return hit.trim().slice(0, MAX_INPUT_LEN)
+
+  // Nothing to reduce: the "context" IS the selection.
+  if (needle && needle === ctx) return ctx
+
+  const sentences = ctx.match(/[^.?!。？！…]+[.?!。？！…]*/g) || [ctx]
+  // Never trim the context below the selection itself — the selection is sent
+  // in full anyway, so a shorter context would just be a mangled duplicate.
+  const maxLen = Math.max(MAX_INPUT_LEN, needle.length)
+
+  const start = needle ? ctx.indexOf(needle) : -1
+  if (start < 0) return sentences[0].trim().slice(0, maxLen)
+
+  const end = start + needle.length
+  let offset = 0
+  const hit = sentences.filter(s => {
+    const sentenceStart = offset
+    offset += s.length
+    return sentenceStart < end && offset > start
+  })
+  return (hit.join('') || sentences[0]).trim().slice(0, maxLen)
 }
 
 export function buildChatCompletionsUrl(baseUrl: string): string {

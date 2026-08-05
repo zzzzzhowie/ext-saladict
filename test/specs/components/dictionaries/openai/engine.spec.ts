@@ -166,6 +166,35 @@ describe('openai translator', () => {
     )
   })
 
+  it('keeps the whole selection when there is no context to reduce', () => {
+    // Quick-search box / word editor: no page selection, so the caller passes
+    // the selection as its own context. It must come back untouched.
+    const multiSentence =
+      "However, my illustration will hold the stance as user's request " +
+      '(primarily business logic). As for how it translates engineering ' +
+      'changes on the VM side, and how it will impact the platform side ' +
+      "actions, it's more up to you guys to make them clear."
+    expect(extractSentence(multiSentence, multiSentence)).toBe(multiSentence)
+    // even past the context cap
+    const long = 'A sentence. ' + 'padding words '.repeat(100)
+    expect(extractSentence(long, long)).toBe(long.replace(/\s+/g, ' ').trim())
+  })
+
+  it('returns every sentence a multi-sentence selection spans', () => {
+    const paragraph =
+      'Sentence one is here. The bank of the river was muddy. Sentence three follows. Sentence four ends it.'
+    expect(
+      extractSentence(
+        'The bank of the river was muddy. Sentence three follows.',
+        paragraph
+      )
+    ).toBe('The bank of the river was muddy. Sentence three follows.')
+    // a partial span still pulls in both sentences it touches
+    expect(extractSentence('river was muddy. Sentence three', paragraph)).toBe(
+      'The bank of the river was muddy. Sentence three follows.'
+    )
+  })
+
   it('translates a whole selected paragraph in full (never truncates it)', async () => {
     const paragraph = (
       'This is a long paragraph. ' + 'word '.repeat(200)
