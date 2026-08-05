@@ -11,6 +11,47 @@ import { storage } from './browser-api'
 import { Observable, from, concat, fromEventPattern } from 'rxjs'
 import { map } from 'rxjs/operators'
 
+/**
+ * Config now lives in `storage.local` instead of `storage.sync`.
+ * `storage.sync` caps each item at 8KB (kQuotaBytesPerItem) and only syncs for
+ * Web-Store installs, so a long OpenAI systemPrompt blew the quota. `local` has
+ * ~10MB and no per-item cap. Cross-device settings sync is dropped in favour of
+ * the built-in import/export. All reads/writes/listeners go through `store`.
+ */
+const store = storage.local
+
+const STORAGE_MIGRATED_FLAG = '__saladict_config_in_local__'
+
+/**
+ * One-time migration for users upgrading from a `storage.sync`-based build:
+ * copy any existing sync data into `local` so their settings/prompts survive.
+ * Idempotent — guarded by a persistent flag; `local` always wins on conflict.
+ */
+export async function migrateStorageToLocal(): Promise<void> {
+  const flag = await storage.local.get<{ [k: string]: boolean }>(
+    STORAGE_MIGRATED_FLAG
+  )
+  if (flag[STORAGE_MIGRATED_FLAG]) {
+    return
+  }
+
+  const synced = await storage.sync.get(null)
+  if (synced && Object.keys(synced).length > 0) {
+    const local = await storage.local.get(null)
+    const toCopy: { [key: string]: any } = {}
+    Object.keys(synced).forEach(key => {
+      if (!(key in local)) {
+        toCopy[key] = synced[key]
+      }
+    })
+    if (Object.keys(toCopy).length > 0) {
+      await storage.local.set(toCopy)
+    }
+  }
+
+  await storage.local.set({ [STORAGE_MIGRATED_FLAG]: true })
+}
+
 export interface StorageChanged<T> {
   newValue?: T
   oldValue?: T
@@ -73,7 +114,7 @@ export async function resetConfig() {
 }
 
 export async function getConfig(): Promise<AppConfig> {
-  const { baseconfig } = await storage.sync.get<{
+  const { baseconfig } = await store.get<{
     baseconfig: AppConfig
   }>('baseconfig')
   return inflate(baseconfig || getDefaultConfig())
@@ -86,7 +127,7 @@ export function updateConfig(baseconfig: AppConfig): Promise<void> {
 
   syncPdfViewerDarkMode(baseconfig.darkMode)
 
-  return storage.sync.set({ baseconfig: deflate(baseconfig) })
+  return store.set({ baseconfig: deflate(baseconfig) })
 }
 
 /**
@@ -95,7 +136,7 @@ export function updateConfig(baseconfig: AppConfig): Promise<void> {
 export async function addConfigListener(
   cb: (changes: AppConfigChanged) => any
 ) {
-  storage.sync.addListener(changes => {
+  store.addListener(changes => {
     if (changes.baseconfig) {
       const { newValue, oldValue } = changes.baseconfig as StorageChanged<
         AppConfigCompressed

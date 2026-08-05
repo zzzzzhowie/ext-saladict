@@ -419,7 +419,19 @@ export const locale = {
     description:
       '随着沙拉查词用户增多，如经常使用机器翻译，建议到官网申请帐号以获得更稳定的体验以及更准确的结果。以下帐号数据只会保留在浏览器中。',
     dictHelp: '见{词典}官网。',
-    manage: '管理私用帐号'
+    manage: '管理私用帐号',
+    openai: {
+      promptHelp:
+        '可用占位符：{{text}} 原文、{{from}} 源语言、{{to}} 目标语言、{{sentence}} 划词所在整句。',
+      reasoningEffortHelp:
+        '推理强度，越低越快越省钱。GPT-5 系列可填 none/low/medium/high/xhigh（最省填 none）；留空则用模型默认。非推理模型留空即可，若填了会自动忽略。',
+      maxTokensHelp: '限制输出长度，留空或 0 表示不限制。',
+      test: '测试服务',
+      testSuccess: '测试成功：',
+      testEmpty: '测试失败：模型未返回任何内容。',
+      testMissing: '请先填写 baseUrl、apiKey 和 model。',
+      testFailed: '测试失败：'
+    }
   },
 
   third_party_privacy: '第三方隐私',

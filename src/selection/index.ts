@@ -4,7 +4,10 @@ import {
   getTextFromSelection,
   getSentenceFromSelection
 } from 'get-selection-more'
-import { message } from '@/_helpers/browser-api'
+import {
+  message,
+  installContextInvalidatedSuppressor
+} from '@/_helpers/browser-api'
 import { createConfigStream } from '@/_helpers/config-manager'
 import { isInDictPanel } from '@/_helpers/saladict'
 
@@ -20,6 +23,9 @@ import {
 import { createIntantCaptureStream } from './instant-capture'
 import { createQuickSearchStream } from './quick-search'
 import { createSelectTextStream } from './select-text'
+
+// Silence the noise a zombie content script makes after the extension reloads.
+installContextInvalidatedSuppressor()
 
 // Firefox somehow loads it two times
 if (!window.__SALADICT_SELECTION_LOADED__) {

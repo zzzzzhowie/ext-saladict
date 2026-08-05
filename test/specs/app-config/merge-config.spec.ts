@@ -1,6 +1,9 @@
 import { AppConfigMutable, getDefaultConfig } from '@/app-config'
 import { mergeConfig } from '@/app-config/merge-config'
 import { getDefaultProfile } from '@/app-config/profiles'
+import {
+  DEFAULT_OPENAI_MODEL
+} from '@/components/dictionaries/openai/auth'
 
 describe('mergeConfig', () => {
   it('drops unsupported dictionary auth entries and keeps supported credentials', () => {
@@ -52,10 +55,36 @@ describe('mergeConfig', () => {
       'deepl',
       'deeplx',
       'niutrans',
+      'openai',
       'tencent',
       'volc',
       'youdaotrans'
     ])
+  })
+
+  it('upgrades a legacy OpenAI model to the current default and leaves prompts untouched', () => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    oldConfig.dictAuth.openai.model = 'gpt-4o-mini'
+    oldConfig.dictAuth.openai.systemPrompt = 'whatever the user had'
+    oldConfig.dictAuth.openai.prompt = ''
+
+    const merged = mergeConfig(oldConfig)
+
+    expect(merged.dictAuth.openai.model).toBe(DEFAULT_OPENAI_MODEL)
+    // prompts are never migrated: empty stays empty, custom stays custom
+    expect(merged.dictAuth.openai.systemPrompt).toBe('whatever the user had')
+    expect(merged.dictAuth.openai.prompt).toBe('')
+  })
+
+  it('never clobbers a user-configured OpenAI prompt', () => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    oldConfig.dictAuth.openai.systemPrompt = 'my custom system prompt'
+    oldConfig.dictAuth.openai.prompt = 'my custom prompt'
+
+    const merged = mergeConfig(oldConfig)
+
+    expect(merged.dictAuth.openai.systemPrompt).toBe('my custom system prompt')
+    expect(merged.dictAuth.openai.prompt).toBe('my custom prompt')
   })
 
   it('keeps new machine translators aligned with default language behavior', () => {

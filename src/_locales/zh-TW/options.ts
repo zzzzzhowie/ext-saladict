@@ -423,7 +423,19 @@ export const locale: typeof _locale = {
     description:
       '隨著沙拉查詞使用者增多，如經常使用機器翻譯，建議到官網申請帳號以獲得更穩定的體驗以及更準確的結果。以下帳號資料只會保留在瀏覽器中。',
     dictHelp: '見{詞典}官網。',
-    manage: '管理私用帳號'
+    manage: '管理私用帳號',
+    openai: {
+      promptHelp:
+        '可用佔位符：{{text}} 原文、{{from}} 源語言、{{to}} 目標語言、{{sentence}} 劃詞所在整句。',
+      reasoningEffortHelp:
+        '推理強度，越低越快越省錢。GPT-5 系列可填 none/low/medium/high/xhigh（最省填 none）；留空則用模型預設。非推理模型留空即可，若填了會自動忽略。',
+      maxTokensHelp: '限制輸出長度，留空或 0 表示不限制。',
+      test: '測試服務',
+      testSuccess: '測試成功：',
+      testEmpty: '測試失敗：模型未返回任何內容。',
+      testMissing: '請先填寫 baseUrl、apiKey 和 model。',
+      testFailed: '測試失敗：'
+    }
   },
 
   third_party_privacy: '第三方隱私',

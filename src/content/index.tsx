@@ -7,8 +7,12 @@ import WordEditorContainer from './components/WordEditor/WordEditor.container'
 import { createStore } from './redux'
 
 import { I18nContextProvider } from '@/_helpers/i18n'
+import { installContextInvalidatedSuppressor } from '@/_helpers/browser-api'
 
 import './_style.scss'
+
+// Silence the noise a zombie content script makes after the extension reloads.
+installContextInvalidatedSuppressor()
 
 // Only load on top frame
 if (window.parent === window && !window.__SALADICT_PANEL_LOADED__) {

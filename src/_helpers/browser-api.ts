@@ -358,6 +358,64 @@ function createMessageCallContext(
   return callContext
 }
 
+/**
+ * True when the error is "Extension context invalidated" — the extension was
+ * reloaded/updated while an old content script kept running. The context is
+ * dead and unrecoverable, so sends should resolve quietly instead of throwing
+ * an uncaught rejection.
+ */
+export function isExtensionContextInvalidatedError(error: unknown): boolean {
+  const runtimeError =
+    error &&
+    typeof error === 'object' &&
+    error['runtimeLastError'] instanceof Error
+      ? error['runtimeLastError']
+      : error instanceof Error
+      ? error
+      : null
+  return !!(
+    runtimeError &&
+    // "Extension context invalidated" is the reload message; after teardown
+    // `browser.runtime` itself becomes undefined, so calling `.sendMessage`
+    // throws "Cannot read properties of undefined (reading 'sendMessage')".
+    /Extension context (invalidated|was invalidated)|(undefined|null).*sendMessage/i.test(
+      runtimeError.message
+    )
+  )
+}
+
+/**
+ * Install a global suppressor for benign "extension context invalidated"
+ * rejections/errors. After the extension is reloaded, the old content script
+ * keeps running as a zombie and every `browser.*` call it makes fails; these
+ * are unrecoverable noise, so we swallow them page-wide (only the specific
+ * teardown messages — real errors still surface).
+ */
+export function installContextInvalidatedSuppressor(): void {
+  if (typeof window === 'undefined') return
+
+  const isBenign = (reason: unknown): boolean => {
+    const msg =
+      (reason && typeof reason === 'object' && (reason as any).message) ||
+      String(reason || '')
+    return /Extension context (invalidated|was invalidated)|(undefined|null).*sendMessage|Receiving end does not exist|Could not establish connection|No tab with id/i.test(
+      String(msg)
+    )
+  }
+
+  window.addEventListener('unhandledrejection', event => {
+    if (isBenign((event as PromiseRejectionEvent).reason)) {
+      event.preventDefault()
+    }
+  })
+  window.addEventListener('error', event => {
+    const e = event as ErrorEvent
+    if (isBenign(e.error || e.message)) {
+      event.preventDefault()
+    }
+  })
+}
+
 function wrapMessageError<T extends MsgType>(
   method: MessageSendMethod,
   args: MessageSendArgs<T>,
@@ -446,6 +504,9 @@ function messageSend<T extends MsgType>(
       validateMessageResponse('message.send', args, response, callContext)
     )
     .catch(err => {
+      if (isExtensionContextInvalidatedError(err)) {
+        return undefined as any
+      }
       throw wrapMessageError('message.send', args, err, callContext)
     })
 }
@@ -479,9 +540,15 @@ async function messageSendSelf<T extends MsgType, R = undefined>(
           ) as any
       )
       .catch(err => {
+        if (isExtensionContextInvalidatedError(err)) {
+          return undefined as any
+        }
         throw wrapMessageError('message.self.send', [message], err, callContext)
       })
   } catch (err) {
+    if (isExtensionContextInvalidatedError(err)) {
+      return undefined as any
+    }
     throw wrapMessageError('message.self.send', [message], err, callContext)
   }
 }

@@ -93,7 +93,7 @@ export const DictItemHead: FC<DictItemHeadProps> = props => {
 
   return (
     <header
-      className={classnames('dictItemHead', {
+      className={classnames('dictItemHead', `dictItemHead--${props.dictID}`, {
         isSearching: props.isSearching
       })}
     >
