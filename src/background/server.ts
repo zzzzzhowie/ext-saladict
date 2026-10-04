@@ -24,6 +24,7 @@ import { DictID } from '@/app-config'
 import { initBackgroundState } from './state'
 import { getDomTaskBridge } from './dom-task-bridge'
 import { registerOpenAIStreamPort } from './openai-stream'
+import { playPronunciation } from './cloud-tts'
 import { canUseOffscreenDocument } from './offscreen-document'
 import {
   callDictEngineMethodInOffscreen,
@@ -116,6 +117,8 @@ export class BackgroundServer {
           return openUrl(msg.payload)
         case 'PLAY_AUDIO':
           return getDomTaskBridge().playAudio(msg.payload)
+        case 'PLAY_PRONUNCIATION':
+          return playPronunciation(msg.payload)
         case 'STOP_AUDIO':
           return getDomTaskBridge().stopAudio()
         case 'FETCH_DICT_RESULT':

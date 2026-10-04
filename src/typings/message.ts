@@ -166,6 +166,11 @@ export type MessageConfig = MessageConfigType<{
     payload: string
   }
 
+  /** Read a word aloud, synthesized from `ipa` (Google Cloud TTS) when given */
+  PLAY_PRONUNCIATION: {
+    payload: { text: string; ipa?: string }
+  }
+
   STOP_AUDIO: {}
 
   LAST_PLAY_AUDIO: {

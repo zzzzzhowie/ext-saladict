@@ -10,9 +10,26 @@
     font-weight: 600;
   }
 
+  .openai-pron-variant {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .openai-pron-variant + .openai-pron-variant::before {
+    content: '·';
+    margin-right: 2px;
+    opacity: 0.6;
+  }
+
   .openai-pron-ipa {
     color: var(--color-font);
     font-family: 'Times New Roman', 'DejaVu Sans', serif;
+  }
+
+  .openai-pron-label {
+    font-size: 0.8em;
+    opacity: 0.7;
   }
 
   .openai-pron-speaker {
