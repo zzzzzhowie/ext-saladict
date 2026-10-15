@@ -451,6 +451,8 @@ export const locale: typeof _locale = {
       providerCustom: 'Custom (OpenAI-compatible)',
       route: 'Calls',
       routeMissing: 'missing',
+      routeKeyIssuer: 'looks like a {{provider}} key',
+      routeKeyPrefix: 'should start with {{prefix}}',
       baseUrlHelp:
         'Custom: the endpoint URL (e.g. https://example.com/v1). Ollama: leave empty for http://localhost:11434/v1.',
       promptHelp:

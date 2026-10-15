@@ -11,7 +11,8 @@ import {
 } from '@/components/dictionaries/openai/engine'
 import {
   PROVIDERS,
-  PROVIDER_IDS
+  PROVIDER_IDS,
+  checkKeyFormat
 } from '@/components/dictionaries/openai/providers/presets'
 
 const trimAuthValue = (value: unknown) =>
@@ -43,7 +44,8 @@ const readAuth = (form: FormInstance, configPath: string): LLMAuthConfig => {
   return auth
 }
 
-/** "Anthropic · claude-haiku-5-5", plus the missing field when there is one. */
+/** "Anthropic · claude-haiku-5-5", plus what's missing or wrong with the
+ * routed provider's credentials. */
 const RouteText: FC<{ form: FormInstance; configPath: string }> = ({
   form,
   configPath
@@ -51,21 +53,40 @@ const RouteText: FC<{ form: FormInstance; configPath: string }> = ({
   const { t } = useTranslate(['options'])
   const resolved = resolveLLMConfig(readAuth(form, configPath))
   const preset = PROVIDERS[resolved.provider]
-  let missing = ''
+  let problem: React.ReactNode = null
   if (!resolved.baseUrl) {
-    missing = 'baseUrl'
+    problem = (
+      <>
+        {t('dictAuth.openai.routeMissing')} <code>baseUrl</code>
+      </>
+    )
   } else if (resolved.keyRequired && !resolved.apiKey) {
-    missing = preset.keyField
+    problem = (
+      <>
+        {t('dictAuth.openai.routeMissing')} <code>{preset.keyField}</code>
+      </>
+    )
+  } else {
+    const mismatch = checkKeyFormat(resolved.provider, resolved.apiKey)
+    if (mismatch) {
+      problem = (
+        <>
+          <code>{preset.keyField}</code>{' '}
+          {mismatch.issuer
+            ? t('dictAuth.openai.routeKeyIssuer', {
+                provider: PROVIDERS[mismatch.issuer].label
+              })
+            : t('dictAuth.openai.routeKeyPrefix', {
+                prefix: mismatch.expectedPrefix
+              })}
+        </>
+      )
+    }
   }
   return (
     <span className="ant-form-text">
       {preset.label} · <code>{resolved.model}</code>
-      {missing ? (
-        <span style={{ color: '#f5222d' }}>
-          {' '}
-          — {t('dictAuth.openai.routeMissing')} <code>{missing}</code>
-        </span>
-      ) : null}
+      {problem ? <span style={{ color: '#f5222d' }}> — {problem}</span> : null}
     </span>
   )
 }
@@ -126,11 +147,18 @@ const codeLabel = (name: string, prefix = '') => (
   </span>
 )
 
-const keyItem = (configPath: string, field: string, providerLabel: string) => ({
+/** Labels are just the field name (it already names the provider), except
+ * the OpenAI key, which kept its original name `apiKey`. */
+const keyItem = (
+  configPath: string,
+  field: string,
+  placeholder = '',
+  prefix = ''
+) => ({
   name: configPath + '.' + field,
   normalize: trimAuthValue,
-  label: codeLabel(field, providerLabel + ' '),
-  children: <Input.Password autoComplete="off" />
+  label: codeLabel(field, prefix ? prefix + ' ' : ''),
+  children: <Input.Password autoComplete="off" placeholder={placeholder} />
 })
 
 /**
@@ -192,11 +220,11 @@ export function getOpenAIAuthItems(
         </Form.Item>
       )
     },
-    keyItem(configPath, 'apiKey', 'OpenAI'),
-    keyItem(configPath, 'openrouterApiKey', 'OpenRouter'),
-    keyItem(configPath, 'anthropicApiKey', 'Anthropic'),
-    keyItem(configPath, 'geminiApiKey', 'Gemini'),
-    keyItem(configPath, 'deepseekApiKey', 'DeepSeek'),
+    keyItem(configPath, 'apiKey', 'sk-proj-…', 'OpenAI'),
+    keyItem(configPath, 'openrouterApiKey', 'sk-or-…'),
+    keyItem(configPath, 'anthropicApiKey', 'sk-ant-…'),
+    keyItem(configPath, 'geminiApiKey', 'AIza…'),
+    keyItem(configPath, 'deepseekApiKey', 'sk-…'),
     {
       name: configPath + '.baseUrl',
       normalize: trimAuthValue,
@@ -208,11 +236,7 @@ export function getOpenAIAuthItems(
       )
     },
     {
-      ...keyItem(
-        configPath,
-        'customApiKey',
-        t('dictAuth.openai.providerCustom')
-      ),
+      ...keyItem(configPath, 'customApiKey'),
       hide: values => !providerIs('custom')(values)
     },
     {

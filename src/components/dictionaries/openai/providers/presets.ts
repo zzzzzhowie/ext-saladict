@@ -8,6 +8,8 @@ export interface ProviderPreset {
   /** `dictAuth.openai` field that holds this provider's key; '' = no key */
   keyField: string
   keyRequired: boolean
+  /** every key this provider issues starts with it (where that holds) */
+  keyPrefix?: string
   /** where the dict title links to */
   homepage: string
 }
@@ -29,6 +31,7 @@ export const PROVIDERS: { [id in ProviderID]: ProviderPreset } = {
     baseUrl: 'https://openrouter.ai/api/v1',
     keyField: 'openrouterApiKey',
     keyRequired: true,
+    keyPrefix: 'sk-or-',
     homepage: 'https://openrouter.ai/models'
   },
   anthropic: {
@@ -38,6 +41,7 @@ export const PROVIDERS: { [id in ProviderID]: ProviderPreset } = {
     baseUrl: 'https://api.anthropic.com/v1',
     keyField: 'anthropicApiKey',
     keyRequired: true,
+    keyPrefix: 'sk-ant-',
     homepage: 'https://platform.claude.com'
   },
   gemini: {
@@ -101,6 +105,43 @@ export function inferProvider(model: string): ProviderID {
   if (/^(gemini|gemma)-/.test(m)) return 'gemini'
   if (m.startsWith('deepseek-')) return 'deepseek'
   return 'openai'
+}
+
+/** Key formats distinctive enough to name their issuer. DeepSeek and legacy
+ * OpenAI keys are a bare `sk-…`, so they can't be attributed. */
+const KEY_ISSUERS: Array<[string, ProviderID]> = [
+  ['sk-or-', 'openrouter'],
+  ['sk-ant-', 'anthropic'],
+  ['sk-proj-', 'openai'],
+  ['sk-svcacct-', 'openai'],
+  ['AIza', 'gemini']
+]
+
+export interface KeyMismatch {
+  /** the provider that issued this key, when its format gives it away */
+  issuer?: ProviderID
+  /** the prefix the routed provider's keys start with */
+  expectedPrefix?: string
+}
+
+/**
+ * Whether `apiKey` can't be a key for `provider` — e.g. an OpenAI `sk-proj-`
+ * key pasted into the OpenRouter field, which OpenRouter answers with a
+ * misleading "Missing Authentication header". Custom endpoints accept
+ * anything, so they're never flagged.
+ */
+export function checkKeyFormat(
+  provider: ProviderID,
+  apiKey: string
+): KeyMismatch | null {
+  const key = apiKey.trim()
+  if (!key || provider === 'custom') return null
+  const hit = KEY_ISSUERS.find(([prefix]) => key.startsWith(prefix))
+  const issuer = hit && hit[1] !== provider ? hit[1] : undefined
+  const { keyPrefix } = PROVIDERS[provider]
+  const expectedPrefix =
+    keyPrefix && !key.startsWith(keyPrefix) ? keyPrefix : undefined
+  return issuer || expectedPrefix ? { issuer, expectedPrefix } : null
 }
 
 /** Provider a pre-multi-provider `baseUrl` pointed at (config migration). */

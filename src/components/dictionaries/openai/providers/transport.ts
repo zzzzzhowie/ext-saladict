@@ -56,7 +56,10 @@ async function post(
     const res = await fetch(req.url, {
       method: 'POST',
       headers: req.headers,
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(req.body),
+      // The key is the only auth. Without this the extension also sends the
+      // user's site login cookies (e.g. openrouter.ai's session) along.
+      credentials: 'omit'
     })
     if (res.ok) {
       if (healed) savePatch(key, diffBody(original, req.body))

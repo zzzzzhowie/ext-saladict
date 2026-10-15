@@ -433,6 +433,8 @@ export const locale: typeof _locale = {
       providerCustom: '自訂（OpenAI 相容）',
       route: '實際呼叫',
       routeMissing: '缺少',
+      routeKeyIssuer: '看起來是 {{provider}} 的 key',
+      routeKeyPrefix: '應以 {{prefix}} 開頭',
       baseUrlHelp:
         '自訂服務填介面位址（如 https://example.com/v1）；Ollama 留空即 http://localhost:11434/v1。',
       promptHelp:

@@ -429,6 +429,8 @@ export const locale = {
       providerCustom: '自定义（OpenAI 兼容）',
       route: '实际调用',
       routeMissing: '缺少',
+      routeKeyIssuer: '看起来是 {{provider}} 的 key',
+      routeKeyPrefix: '应以 {{prefix}} 开头',
       baseUrlHelp:
         '自定义服务填接口地址（如 https://example.com/v1）；Ollama 留空即 http://localhost:11434/v1。',
       promptHelp:

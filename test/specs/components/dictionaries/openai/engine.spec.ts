@@ -19,7 +19,10 @@ import {
   buildChatCompletionsUrl,
   isNewOpenAIModel
 } from '@/components/dictionaries/openai/providers/openai-chat'
-import { inferProvider } from '@/components/dictionaries/openai/providers/presets'
+import {
+  checkKeyFormat,
+  inferProvider
+} from '@/components/dictionaries/openai/providers/presets'
 import { isLegacyClaudeModel } from '@/components/dictionaries/openai/providers/anthropic'
 import { DEFAULT_OPENAI_MODEL } from '@/components/dictionaries/openai/auth'
 import {
@@ -845,5 +848,47 @@ describe('heal cache', () => {
     expect(calls[1].body.top_k).toBeUndefined()
     expect(translated).toBe('ok')
     expect(storageData[HEAL_CACHE_KEY][key]).toBeUndefined()
+  })
+})
+
+describe('request hygiene', () => {
+  it('never sends site cookies along with the API key', async () => {
+    mockFetch(() => chatReply('ok'))
+    await translate(
+      { openrouterApiKey: 'sk-or-v1-x', model: 'openai/gpt-5.4-nano' },
+      { text: 'bank' }
+    )
+    expect((global as any).fetch.mock.calls[0][1].credentials).toBe('omit')
+  })
+
+  it("flags a key that can't belong to the routed provider", () => {
+    // an OpenAI key in the OpenRouter field: wrong issuer and wrong prefix
+    expect(checkKeyFormat('openrouter', 'sk-proj-abc')).toEqual({
+      issuer: 'openai',
+      expectedPrefix: 'sk-or-'
+    })
+    expect(checkKeyFormat('anthropic', 'sk-xyz')).toEqual({
+      issuer: undefined,
+      expectedPrefix: 'sk-ant-'
+    })
+    expect(checkKeyFormat('openai', 'sk-or-v1-abc')).toEqual({
+      issuer: 'openrouter',
+      expectedPrefix: undefined
+    })
+    expect(checkKeyFormat('deepseek', 'AIzaSy123')).toEqual({
+      issuer: 'gemini',
+      expectedPrefix: undefined
+    })
+  })
+
+  it('accepts keys whose format fits, unknown formats and custom endpoints', () => {
+    expect(checkKeyFormat('openrouter', 'sk-or-v1-abc')).toBeNull()
+    expect(checkKeyFormat('anthropic', 'sk-ant-api03-abc')).toBeNull()
+    expect(checkKeyFormat('gemini', 'AIzaSy123')).toBeNull()
+    // bare sk- keys (DeepSeek, legacy OpenAI) can't be attributed
+    expect(checkKeyFormat('openai', 'sk-abc')).toBeNull()
+    expect(checkKeyFormat('deepseek', 'sk-abc')).toBeNull()
+    expect(checkKeyFormat('custom', 'sk-ant-api03-abc')).toBeNull()
+    expect(checkKeyFormat('openrouter', '')).toBeNull()
   })
 })
