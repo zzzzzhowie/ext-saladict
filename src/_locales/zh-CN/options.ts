@@ -421,15 +421,26 @@ export const locale = {
     dictHelp: '见{词典}官网。',
     manage: '管理私用帐号',
     openai: {
+      modelHelp:
+        '按模型名自动选服务商：带「厂商/」前缀（如 openai/gpt-5.4-nano）走 OpenRouter；claude-* 走 Anthropic；gemini-* 走 Gemini；deepseek-* 走 DeepSeek；其余走 OpenAI。',
+      providerHelp:
+        '默认「自动」按模型名识别。Ollama 和自定义 OpenAI 兼容接口认不出来，需要在这里手动选。',
+      providerAuto: '自动（按模型名识别）',
+      providerCustom: '自定义（OpenAI 兼容）',
+      route: '实际调用',
+      routeMissing: '缺少',
+      baseUrlHelp:
+        '自定义服务填接口地址（如 https://example.com/v1）；Ollama 留空即 http://localhost:11434/v1。',
       promptHelp:
         '可用占位符：{{text}} 原文、{{from}} 源语言、{{to}} 目标语言、{{sentence}} 划词所在整句。',
       reasoningEffortHelp:
-        '推理强度，越低越快越省钱。GPT-5 系列可填 none/low/medium/high/xhigh（最省填 none）；留空则用模型默认。非推理模型留空即可，若填了会自动忽略。',
+        '推理强度，越低越快越省钱。可填 none/minimal/low/medium/high/xhigh（最省填 none）；留空则用模型默认。Claude 新模型不能完全关闭思考，none 会按 low 发送；服务商不支持的值会自动去掉。',
       maxTokensHelp: '限制输出长度，留空或 0 表示不限制。',
       test: '测试服务',
       testSuccess: '测试成功：',
       testEmpty: '测试失败：模型未返回任何内容。',
-      testMissing: '请先填写 baseUrl、apiKey 和 model。',
+      testMissing:
+        '请先填写 model 和对应服务商的 apiKey（自定义服务还要填 baseUrl）。',
       testFailed: '测试失败：'
     }
   },

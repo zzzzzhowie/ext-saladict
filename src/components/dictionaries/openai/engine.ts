@@ -1,4 +1,3 @@
-import axios from 'axios'
 import memoizeOne from 'memoize-one'
 import {
   SearchFunction,
@@ -16,12 +15,14 @@ import {
   credentialRequiredResult
 } from '../machine-custom'
 import {
-  DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_OPENAI_PROMPT,
   DEFAULT_OPENAI_SYSTEM_PROMPT
 } from './auth'
 import { OpenAILanguage } from './config'
+import { PROVIDERS, inferProvider, isProviderID } from './providers/presets'
+import { completeChat, streamChat } from './providers/transport'
+import { ChatInput, ProviderID, ResolvedLLMConfig } from './providers/types'
 
 export const getTranslator = memoizeOne(() =>
   createLanguageHelper<OpenAILanguage>(
@@ -29,8 +30,10 @@ export const getTranslator = memoizeOne(() =>
   )
 )
 
-export const getSrcPage: GetSrcPageFunction = () =>
-  'https://platform.openai.com'
+export const getSrcPage: GetSrcPageFunction = (text, config) => {
+  const resolved = resolveLLMConfig((config.dictAuth as any).openai || {})
+  return PROVIDERS[resolved.provider].homepage || resolved.baseUrl
+}
 
 export interface OpenAIResult {
   id: 'openai'
@@ -46,10 +49,21 @@ export interface OpenAIResult {
   credentialError?: MachineCredentialError
 }
 
-export interface OpenAIAuthConfig {
-  baseUrl?: string
-  apiKey?: string
+/** Stored `dictAuth.openai`. One key field per provider, so switching models
+ * across vendors never loses a key. */
+export interface LLMAuthConfig {
+  /** 'auto' (infer from the model name) or a ProviderID */
+  provider?: string
   model?: string
+  /** OpenAI key (kept under its original name) */
+  apiKey?: string
+  openrouterApiKey?: string
+  anthropicApiKey?: string
+  geminiApiKey?: string
+  deepseekApiKey?: string
+  /** endpoint for the custom provider; optional override for Ollama */
+  baseUrl?: string
+  customApiKey?: string
   systemPrompt?: string
   prompt?: string
   temperature?: string | number
@@ -57,36 +71,50 @@ export interface OpenAIAuthConfig {
   maxTokens?: string | number
 }
 
-export interface ResolvedOpenAIConfig {
-  baseUrl: string
-  apiKey: string
+export function resolveProviderID(
+  provider: unknown,
   model: string
-  systemPrompt: string
-  prompt: string
-  temperature: number
-  /** '' means don't send `reasoning_effort` (safe for non-reasoning models) */
-  reasoningEffort: string
-  /** 0 means don't send `max_tokens` (no limit) */
-  maxTokens: number
+): ProviderID {
+  return isProviderID(provider) ? provider : inferProvider(model)
 }
 
-/** Merge the stored auth with built-in defaults. */
-export function resolveOpenAIConfig(
-  auth: OpenAIAuthConfig = {}
-): ResolvedOpenAIConfig {
+/** Merge the stored auth with built-in defaults and route it to a provider. */
+export function resolveLLMConfig(auth: LLMAuthConfig = {}): ResolvedLLMConfig {
   const temperature = Number.parseFloat(String(auth.temperature))
   const maxTokens = Number.parseInt(String(auth.maxTokens), 10)
+  const model = (auth.model || DEFAULT_OPENAI_MODEL).trim()
+  const provider = resolveProviderID(auth.provider, model)
+  const preset = PROVIDERS[provider]
+  // A user baseUrl only applies where the address is the user's own.
+  const ownUrl =
+    provider === 'custom' || provider === 'ollama'
+      ? (auth.baseUrl || '').trim()
+      : ''
 
   return {
-    baseUrl: (auth.baseUrl || DEFAULT_OPENAI_BASE_URL).trim(),
-    apiKey: (auth.apiKey || '').trim(),
-    model: (auth.model || DEFAULT_OPENAI_MODEL).trim(),
+    provider,
+    protocol: preset.protocol,
+    baseUrl: ownUrl || preset.baseUrl,
+    apiKey: preset.keyField
+      ? String((auth as any)[preset.keyField] || '').trim()
+      : '',
+    keyRequired: preset.keyRequired,
+    model,
     systemPrompt: auth.systemPrompt || DEFAULT_OPENAI_SYSTEM_PROMPT,
     prompt: auth.prompt || DEFAULT_OPENAI_PROMPT,
     temperature: Number.isFinite(temperature) ? temperature : 0,
     reasoningEffort: (auth.reasoningEffort || '').trim(),
     maxTokens: Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 0
   }
+}
+
+/** Whether the resolved config has everything needed to make a call. */
+export function hasCredential(resolved: ResolvedLLMConfig): boolean {
+  return (
+    !!resolved.model &&
+    !!resolved.baseUrl &&
+    (!resolved.keyRequired || !!resolved.apiKey)
+  )
 }
 
 function fillTemplate(
@@ -140,14 +168,7 @@ export function extractSentence(selection: string, context: string): string {
   return (hit.join('') || sentences[0]).trim().slice(0, maxLen)
 }
 
-export function buildChatCompletionsUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim().replace(/\/+$/, '')
-  return /\/chat\/completions$/i.test(trimmed)
-    ? trimmed
-    : `${trimmed}/chat/completions`
-}
-
-export interface OpenAITranslateInput extends ResolvedOpenAIConfig {
+export interface LLMTranslateInput {
   text: string
   from: string
   to: string
@@ -156,24 +177,16 @@ export interface OpenAITranslateInput extends ResolvedOpenAIConfig {
 }
 
 /**
- * Pure translation call against an OpenAI-compatible `/chat/completions`
- * endpoint. Reused by both the dict `search` and the options "test service"
- * button. Throws on network / http errors.
+ * One-shot translation call. Used by the options "test service" button.
+ * Throws on network / http errors.
  */
-export async function openaiTranslate(
-  input: OpenAITranslateInput
+export async function llmTranslate(
+  resolved: ResolvedLLMConfig,
+  input: LLMTranslateInput
 ): Promise<string> {
-  const messages = buildChatMessages(input, input)
-  const body = buildChatBody(input, messages, false)
-
-  const response = await postChatCompletions(
-    buildChatCompletionsUrl(input.baseUrl),
-    body,
-    buildChatHeaders(input.apiKey)
+  return stripCodeFences(
+    await completeChat(resolved, buildChat(resolved, input))
   )
-
-  const content = response.data?.choices?.[0]?.message?.content
-  return typeof content === 'string' ? stripCodeFences(content) : ''
 }
 
 /** A single English word — the only case where an IPA pronunciation line makes
@@ -196,11 +209,11 @@ export const IPA_DIRECTIVE =
   'correct pronunciation of the exact word form as written (an inflected form, ' +
   'not its base form). Then continue with your normal answer.'
 
-/** Build the chat `messages` array, choosing the mode-appropriate prompts. */
-function buildChatMessages(
-  resolved: ResolvedOpenAIConfig,
-  input: { text: string; from: string; to: string; sentence?: string }
-): Array<{ role: string; content: string }> {
+/** Build the prompt, choosing the mode-appropriate instructions. */
+function buildChat(
+  resolved: ResolvedLLMConfig,
+  input: LLMTranslateInput
+): ChatInput {
   // Everything is driven by the user-configurable systemPrompt/prompt — no
   // mode logic is hardcoded here. The prompt itself decides how to handle
   // words / sentences / Chinese input (see the default systemPrompt).
@@ -209,203 +222,47 @@ function buildChatMessages(
   const selection = input.text.trim()
   const sentence = extractSentence(selection, input.sentence || selection)
 
-  const messages: Array<{ role: string; content: string }> = []
+  const system: string[] = []
   if (resolved.systemPrompt.trim()) {
-    messages.push({ role: 'system', content: resolved.systemPrompt })
+    system.push(resolved.systemPrompt)
   }
   if (isSingleEnglishWord(selection)) {
-    messages.push({ role: 'system', content: IPA_DIRECTIVE })
+    system.push(IPA_DIRECTIVE)
   }
-  messages.push({
-    role: 'user',
-    content: fillTemplate(resolved.prompt, {
+  return {
+    system,
+    user: fillTemplate(resolved.prompt, {
       text: selection,
       from: input.from,
       to: input.to,
       sentence
     })
-  })
-  return messages
-}
-
-/** Build the request body, applying newer-model param conventions. */
-function buildChatBody(
-  resolved: ResolvedOpenAIConfig,
-  messages: Array<{ role: string; content: string }>,
-  stream: boolean
-): Record<string, any> {
-  const newModel = isNewOpenAIModel(resolved.model)
-  const body: Record<string, any> = { model: resolved.model, messages, stream }
-  // Newer reasoning models (gpt-5+, o-series) only accept the default
-  // temperature; send it only for older models.
-  if (!newModel) {
-    body.temperature = resolved.temperature
-  }
-  if (resolved.reasoningEffort) {
-    body.reasoning_effort = resolved.reasoningEffort
-  }
-  if (resolved.maxTokens > 0) {
-    // Newer models renamed `max_tokens` -> `max_completion_tokens`.
-    if (newModel) {
-      body.max_completion_tokens = resolved.maxTokens
-    } else {
-      body.max_tokens = resolved.maxTokens
-    }
-  }
-  return body
-}
-
-function buildChatHeaders(apiKey: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
   }
 }
 
 /**
  * Streaming variant used by the dict View for fast, progressive rendering.
  * Resolves the auth in the background (keeping the apiKey out of page context),
- * streams the OpenAI SSE response, and calls `onDelta` with the accumulated
+ * streams the response, and calls `onDelta` with the accumulated
  * (fence-stripped) HTML as it grows. Throws on http/network errors; the error
  * carries `.status` so the caller can classify credential failures.
  */
-export interface OpenAIStreamInput {
-  text: string
-  from: string
-  to: string
-  sentence?: string
-}
-
-export async function openaiStream(
-  auth: OpenAIAuthConfig,
-  input: OpenAIStreamInput,
+export async function llmStream(
+  auth: LLMAuthConfig,
+  input: LLMTranslateInput,
   onDelta: (html: string) => void
 ): Promise<void> {
-  const resolved = resolveOpenAIConfig(auth)
-  const messages = buildChatMessages(resolved, input)
-  const body = buildChatBody(resolved, messages, true)
-
-  const res = await fetch(buildChatCompletionsUrl(resolved.baseUrl), {
-    method: 'POST',
-    headers: buildChatHeaders(resolved.apiKey),
-    body: JSON.stringify(body)
-  })
-
-  if (!res.ok || !res.body) {
-    const errText = await res.text().catch(() => '')
-    let apiMessage = ''
-    try {
-      apiMessage = JSON.parse(errText)?.error?.message || ''
-    } catch {
-      /* non-JSON error body */
-    }
-    const err: any = new Error(
-      apiMessage || `OpenAI request failed (${res.status})`
-    )
-    err.status = res.status
-    throw err
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+  const resolved = resolveLLMConfig(auth)
   let content = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) continue
-      const data = trimmed.slice(5).trim()
-      if (data === '[DONE]') return
-      try {
-        const json = JSON.parse(data)
-        const delta = json.choices?.[0]?.delta?.content
-        if (typeof delta === 'string' && delta) {
-          content += delta
-          onDelta(stripStreamingFences(content))
-        }
-      } catch {
-        /* keep-alive comment or partial chunk */
-      }
-    }
-  }
+  await streamChat(resolved, buildChat(resolved, input), delta => {
+    content += delta
+    onDelta(stripStreamingFences(content))
+  })
 }
 
 /** Strip a leading ```lang fence and a trailing ``` from partial stream output. */
 export function stripStreamingFences(text: string): string {
   return text.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```\s*$/, '')
-}
-
-/**
- * Whether the model follows the newer OpenAI param conventions
- * (`max_completion_tokens` instead of `max_tokens`, fixed `temperature`).
- * Covers gpt-5/6/7…, o1/o3/o4… reasoning models.
- */
-export function isNewOpenAIModel(model: string): boolean {
-  return /(^|\/)o[1-9]|gpt-[5-9]/i.test(model.trim())
-}
-
-/**
- * POST to `/chat/completions`, self-healing across provider quirks: if the
- * provider rejects `max_tokens` / `max_completion_tokens` / `temperature` with
- * a 400, swap or drop that param and retry once. Steady-state calls (model
- * classified correctly up front) never hit the retry path. On final failure,
- * rethrows with the provider's real error message.
- */
-async function postChatCompletions(
-  url: string,
-  body: Record<string, any>,
-  headers: Record<string, string>,
-  attempt = 0
-): Promise<any> {
-  try {
-    return await axios.post(url, body, { headers })
-  } catch (e) {
-    const apiError = (e as any)?.response?.data?.error
-    const param: string | undefined = apiError?.param
-
-    if (attempt < 3 && param) {
-      if (param === 'max_tokens' && 'max_tokens' in body) {
-        body.max_completion_tokens = body.max_tokens
-        delete body.max_tokens
-        return postChatCompletions(url, body, headers, attempt + 1)
-      }
-      if (
-        param === 'max_completion_tokens' &&
-        'max_completion_tokens' in body
-      ) {
-        body.max_tokens = body.max_completion_tokens
-        delete body.max_completion_tokens
-        return postChatCompletions(url, body, headers, attempt + 1)
-      }
-      if (param === 'temperature' && 'temperature' in body) {
-        delete body.temperature
-        return postChatCompletions(url, body, headers, attempt + 1)
-      }
-      if (param === 'reasoning_effort' && 'reasoning_effort' in body) {
-        // Some models call the lowest tier "none" instead of "minimal";
-        // otherwise the value/param is unsupported, so drop it.
-        if (body.reasoning_effort === 'minimal') {
-          body.reasoning_effort = 'none'
-        } else {
-          delete body.reasoning_effort
-        }
-        return postChatCompletions(url, body, headers, attempt + 1)
-      }
-    }
-
-    // Surface the provider's actual message instead of axios's generic "status
-    // code 400". Keep the original response so credential detection still works.
-    if (apiError?.message && e instanceof Error) {
-      e.message = apiError.message
-    }
-    throw e
-  }
 }
 
 /** Some models wrap output in ```html ... ``` fences; strip them. */
@@ -429,18 +286,18 @@ export const search: SearchFunction<
     payload
   )
 
-  const resolved = resolveOpenAIConfig((config.dictAuth as any).openai || {})
+  const resolved = resolveLLMConfig((config.dictAuth as any).openai || {})
 
-  if (!resolved.apiKey || !resolved.baseUrl || !resolved.model) {
+  if (!hasCredential(resolved)) {
     return credentialRequiredResult('openai', langcodes) as DictSearchResult<
       OpenAIResult
     >
   }
 
-  // Don't call OpenAI here — return immediately so the panel stops spinning,
-  // then let the View stream the result over a background port (fast, and the
-  // apiKey never leaves the background). Invalid-credential/errors surface
-  // through that stream, not here.
+  // Don't call the model here — return immediately so the panel stops
+  // spinning, then let the View stream the result over a background port
+  // (fast, and the apiKey never leaves the background). Invalid-credential /
+  // errors surface through that stream, not here.
   return {
     result: {
       id: 'openai',

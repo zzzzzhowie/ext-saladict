@@ -1,11 +1,11 @@
 import { getConfig } from '@/_helpers/config-manager'
-import { openaiStream } from '@/components/dictionaries/openai/engine'
+import { llmStream } from '@/components/dictionaries/openai/engine'
 import { getCredentialErrorFromHttpStatus } from '@/components/dictionaries/machine-custom'
 
 /**
- * Handles a `saladict-openai-stream` port opened by the OpenAI dict View.
+ * Handles a `saladict-openai-stream` port opened by the AI translate dict View.
  * The View posts `{ text, from, to, sentence }`; we resolve the auth here (so
- * the apiKey never reaches the page), stream the OpenAI response, and post back
+ * the apiKey never reaches the page), stream the model's response, and post back
  * `{ type: 'delta', html }` chunks followed by `{ type: 'done' }`, or
  * `{ type: 'error', credentialError?, message? }` on failure.
  */
@@ -29,7 +29,7 @@ export function registerOpenAIStreamPort(port: browser.runtime.Port): void {
     try {
       const config = await getConfig()
       const auth = (config.dictAuth as any).openai || {}
-      await openaiStream(auth, req, html => post({ type: 'delta', html }))
+      await llmStream(auth, req, html => post({ type: 'delta', html }))
       post({ type: 'done' })
     } catch (e) {
       post({

@@ -1,9 +1,7 @@
 import { AppConfigMutable, getDefaultConfig } from '@/app-config'
 import { mergeConfig } from '@/app-config/merge-config'
 import { getDefaultProfile } from '@/app-config/profiles'
-import {
-  DEFAULT_OPENAI_MODEL
-} from '@/components/dictionaries/openai/auth'
+import { DEFAULT_OPENAI_MODEL } from '@/components/dictionaries/openai/auth'
 
 describe('mergeConfig', () => {
   it('drops unsupported dictionary auth entries and keeps supported credentials', () => {
@@ -85,6 +83,64 @@ describe('mergeConfig', () => {
 
     expect(merged.dictAuth.openai.systemPrompt).toBe('my custom system prompt')
     expect(merged.dictAuth.openai.prompt).toBe('my custom prompt')
+  })
+
+  /** A stored AI account from before multi-provider support (no `provider`). */
+  const singleProviderConfig = (baseUrl: string, apiKey: string) => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    const { provider, ...legacy } = oldConfig.dictAuth.openai as any
+    ;(oldConfig.dictAuth as any).openai = { ...legacy, baseUrl, apiKey }
+    return oldConfig
+  }
+
+  it('keeps an api.openai.com account as the OpenAI key', () => {
+    const merged = mergeConfig(
+      singleProviderConfig('https://api.openai.com/v1', 'sk-openai')
+    )
+    expect(merged.dictAuth.openai.provider).toBe('auto')
+    expect(merged.dictAuth.openai.apiKey).toBe('sk-openai')
+    expect(merged.dictAuth.openai.baseUrl).toBe('')
+  })
+
+  it('moves a single OpenRouter account to the OpenRouter key', () => {
+    const merged = mergeConfig(
+      singleProviderConfig('https://openrouter.ai/api/v1', 'sk-or')
+    )
+    expect(merged.dictAuth.openai.provider).toBe('openrouter')
+    expect(merged.dictAuth.openai.openrouterApiKey).toBe('sk-or')
+    expect(merged.dictAuth.openai.apiKey).toBe('')
+    expect(merged.dictAuth.openai.baseUrl).toBe('')
+  })
+
+  it('keeps an unknown endpoint as a custom provider', () => {
+    const merged = mergeConfig(
+      singleProviderConfig('https://proxy.example.com/v1', 'sk-proxy')
+    )
+    expect(merged.dictAuth.openai.provider).toBe('custom')
+    expect(merged.dictAuth.openai.baseUrl).toBe('https://proxy.example.com/v1')
+    expect(merged.dictAuth.openai.customApiKey).toBe('sk-proxy')
+    expect(merged.dictAuth.openai.apiKey).toBe('')
+  })
+
+  it('recognises a local Ollama endpoint', () => {
+    const merged = mergeConfig(
+      singleProviderConfig('http://127.0.0.1:11434/v1', '')
+    )
+    expect(merged.dictAuth.openai.provider).toBe('ollama')
+    expect(merged.dictAuth.openai.baseUrl).toBe('http://127.0.0.1:11434/v1')
+  })
+
+  it('leaves an already multi-provider config alone', () => {
+    const oldConfig = getDefaultConfig() as AppConfigMutable
+    oldConfig.dictAuth.openai.provider = 'custom'
+    oldConfig.dictAuth.openai.baseUrl = 'https://openrouter.ai/api/v1'
+    oldConfig.dictAuth.openai.customApiKey = 'sk-custom'
+
+    const merged = mergeConfig(oldConfig)
+
+    expect(merged.dictAuth.openai.provider).toBe('custom')
+    expect(merged.dictAuth.openai.baseUrl).toBe('https://openrouter.ai/api/v1')
+    expect(merged.dictAuth.openai.customApiKey).toBe('sk-custom')
   })
 
   it('keeps new machine translators aligned with default language behavior', () => {

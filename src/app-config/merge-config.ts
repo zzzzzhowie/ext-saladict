@@ -14,7 +14,8 @@ import get from 'lodash/get'
 import set from 'lodash/set'
 import {
   DEFAULT_OPENAI_MODEL,
-  LEGACY_OPENAI_MODELS
+  LEGACY_OPENAI_MODELS,
+  migrateSingleProviderAuth
 } from '@/components/dictionaries/openai/auth'
 import { DEFAULT_DEEPL_AUTH_KEY } from '@/components/dictionaries/deepl/auth'
 
@@ -232,6 +233,13 @@ export function mergeConfig(
   const openaiAuth = base.dictAuth.openai
   if (openaiAuth && LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
     openaiAuth.model = DEFAULT_OPENAI_MODEL
+  }
+
+  // Configs from before multi-provider support have no `provider`: move their
+  // single baseUrl + apiKey account to the provider that baseUrl served.
+  const storedOpenaiAuth = get(oldConfig, 'dictAuth.openai')
+  if (openaiAuth && storedOpenaiAuth && !('provider' in storedOpenaiAuth)) {
+    migrateSingleProviderAuth(openaiAuth)
   }
 
   // Fill in the built-in DeepL auth key (from .env) when the user has none.

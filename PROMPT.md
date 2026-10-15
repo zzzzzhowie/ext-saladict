@@ -1,9 +1,9 @@
-# OpenAI dict — prompts
+# AI translate dict — prompts
 
-Canonical copy of the prompts for the OpenAI (AI translation) dict. The engine
-ships with **empty** default `systemPrompt`/`prompt` — all behaviour lives here,
-so paste the two blocks below into **词典账号 → OpenAI** (systemPrompt / prompt)
-after enabling the dict. Nothing is hardcoded in the engine.
+Canonical copy of the prompts for the AI translate dict (dictID `openai`). The
+engine ships with **empty** default `systemPrompt`/`prompt` — all behaviour lives
+here, so paste the two blocks below into **词典账号 → AI 翻译** (systemPrompt /
+prompt) after enabling the dict. The same prompts are sent to every provider. Nothing is hardcoded in the engine.
 
 ## System Prompt
 

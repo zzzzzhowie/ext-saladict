@@ -450,15 +450,26 @@ export const locale: typeof _locale = {
     dictHelp: 'Consulte el sitio web oficial de {dict}.',
     manage: 'Gestionar cuentas de traductor',
     openai: {
+      modelHelp:
+        'The provider is picked from the model name: a "vendor/" prefix (e.g. openai/gpt-5.4-nano) goes to OpenRouter; claude-* to Anthropic; gemini-* to Gemini; deepseek-* to DeepSeek; anything else to OpenAI.',
+      providerHelp:
+        '"Auto" routes by model name. Ollama and custom OpenAI-compatible endpoints can\'t be told apart by name, so pick them here.',
+      providerAuto: 'Auto (by model name)',
+      providerCustom: 'Custom (OpenAI-compatible)',
+      route: 'Calls',
+      routeMissing: 'missing',
+      baseUrlHelp:
+        'Custom: the endpoint URL (e.g. https://example.com/v1). Ollama: leave empty for http://localhost:11434/v1.',
       promptHelp:
         'Placeholders: {{text}} source text, {{from}} source lang, {{to}} target lang, {{sentence}} the whole sentence the word is in.',
       reasoningEffortHelp:
-        'Reasoning effort — lower is faster and cheaper. GPT-5 models accept none/low/medium/high/xhigh (use none for the cheapest); leave empty for the model default. Safe to leave empty for non-reasoning models; an unsupported value is dropped automatically.',
+        "Reasoning effort — lower is faster and cheaper. Accepts none/minimal/low/medium/high/xhigh (none is the cheapest); leave empty for the model default. Current Claude models can't switch thinking off, so none is sent as low. Values a provider doesn't support are dropped automatically.",
       maxTokensHelp: 'Cap the output length. Empty or 0 means no limit.',
       test: 'Test service',
       testSuccess: 'Test succeeded: ',
       testEmpty: 'Test failed: the model returned nothing.',
-      testMissing: 'Please fill in baseUrl, apiKey and model first.',
+      testMissing:
+        "Please fill in the model and its provider's apiKey first (plus baseUrl for a custom endpoint).",
       testFailed: 'Test failed: '
     }
   },

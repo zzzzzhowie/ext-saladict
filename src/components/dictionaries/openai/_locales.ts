@@ -1,7 +1,7 @@
 import { getMachineLocales } from '../locales'
 
 export const locales = getMachineLocales({
-  en: 'OpenAI Translate',
-  'zh-CN': 'OpenAI 翻译',
-  'zh-TW': 'OpenAI 翻譯'
+  en: 'AI Translate',
+  'zh-CN': 'AI 翻译',
+  'zh-TW': 'AI 翻譯'
 })
