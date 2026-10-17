@@ -5,5 +5,6 @@
   },
   "incognito": "split",
   "update_url": "https://clients2.google.com/service/update2/crx",
-  "minimum_chrome_version": "128"
+  "minimum_chrome_version": "128",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyiyhSEToWst0RB3hDPSMBdmhypDq7DvFDVEzrd4pyBkKsUZvptmeF/X3HCN0BP7LLs1rB8fwtzJuEU8JNiaCs2yPoORxg10niTp/ct+TetqTo7fg5i1EeEaxheaX6w3u7buVv/18UECmc8EOwVJLZqgSFI3b3NVzHN0S3rt9yVz6mLWqNaGZPV6bNUtSSOuNLQD/wT2zEzypdKYp0Ve77Hc8ZZkEvPUybzzwv7uB7ZoPsYYAB0YPXuSL6o71DTJdhD/6HAomRD4ZKbnVrU5md+Cx0nKN4Odp3QvPun9YzgtWDFS9mjGU4EYf8LHxi+Ep9dqQTnGJQXAHnU1YoaMThQIDAQAB"
 }
