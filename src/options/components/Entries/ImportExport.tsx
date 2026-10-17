@@ -9,7 +9,11 @@ import { ProfileIDList, Profile } from '@/app-config/profiles'
 import { mergeProfile } from '@/app-config/merge-profile'
 import { useTranslate } from '@/_helpers/i18n'
 import { storage } from '@/_helpers/browser-api'
-import { updateConfig, getConfig } from '@/_helpers/config-manager'
+import {
+  updateConfig,
+  getConfig,
+  settingsStore
+} from '@/_helpers/config-manager'
 import {
   updateProfile,
   getProfile,
@@ -120,11 +124,10 @@ async function importConfig(file: RcFile, t: TFunction) {
     return
   }
 
-  // Config/profiles live in storage.local now — drop the existing set (incl.
-  // stale profile blobs) before writing the imported one. syncConfig /
-  // hasInstructionsShown remain in storage.sync.
+  // Drop the existing config/profiles (incl. stale profile blobs) before
+  // writing the imported ones.
   const oldProfileIDList = await getProfileIDList()
-  await storage.local.remove([
+  await settingsStore.remove([
     'baseconfig',
     'activeProfileID',
     'profileIDList',
@@ -156,17 +159,15 @@ async function importConfig(file: RcFile, t: TFunction) {
         // use first item instead
         activeProfileID = profileIDList[0].id
       }
-      await storage.local.set({ activeProfileID, profileIDList })
+      await settingsStore.set({ activeProfileID, profileIDList })
     }
   }
 }
 
 async function exportConfig(t: TFunction) {
-  // activeProfileID / profileIDList moved to storage.local; hasInstructionsShown
-  // / syncConfig are still in storage.sync.
   const result: Record<string, any> = {
     ...(await storage.sync.get(['hasInstructionsShown', 'syncConfig'])),
-    ...(await storage.local.get(['activeProfileID', 'profileIDList']))
+    ...(await settingsStore.get(['activeProfileID', 'profileIDList']))
   }
 
   result.baseconfig = await getConfig()

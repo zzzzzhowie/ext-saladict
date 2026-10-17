@@ -11,19 +11,15 @@ import {
   ProfileID
 } from '@/app-config/profiles'
 import { mergeProfile } from '@/app-config/merge-profile'
-import { storage } from './browser-api'
+import { settingsStore } from './config-manager'
 import { TFunction } from 'i18next'
-import isEqual from 'lodash/isEqual'
+import { diffValue } from './sparse-patch'
 
 import { Observable, from, concat, fromEventPattern } from 'rxjs'
 import { map } from 'rxjs/operators'
 
-/**
- * Profiles are stored in `storage.local` (not `storage.sync`) — see
- * config-manager's note: `sync` has an 8KB per-item cap that a large profile
- * (e.g. a long OpenAI prompt) can exceed. Migration lives there too.
- */
-const store = storage.local
+/** Profiles share the config's storage area (`storage.sync`), see config-manager. */
+const store = settingsStore
 
 export interface StorageChanged<T> {
   newValue: T
@@ -98,26 +94,6 @@ function createProfilePatch(profile: Profile): ProfilePatch {
   patch.version = profile.version
 
   return patch
-}
-
-function diffValue(value: any, baseValue: any): any {
-  if (!isPlainObject(value) || !isPlainObject(baseValue)) {
-    return isEqual(value, baseValue) ? undefined : value
-  }
-
-  const result = {}
-  Object.keys(value).forEach(key => {
-    const diff = diffValue(value[key], baseValue[key])
-    if (diff !== undefined) {
-      result[key] = diff
-    }
-  })
-
-  return Object.keys(result).length > 0 ? result : undefined
-}
-
-function isPlainObject(value: any): value is { [key: string]: any } {
-  return Object.prototype.toString.call(value) === '[object Object]'
 }
 
 function isProfileCompressedV2(

@@ -5,7 +5,7 @@ import { checkUpdate } from '@/_helpers/check-update'
 import {
   updateConfig,
   initConfig,
-  migrateStorageToLocal
+  migrateStorageToSync
 } from '@/_helpers/config-manager'
 import {
   getProfileIDList,
@@ -183,9 +183,9 @@ async function onInstalled({
   reason: string
   previousVersion?: string
 }) {
-  // Upgrading from a storage.sync build: carry settings over to storage.local
+  // Upgrading from a storage.local build: move settings into storage.sync
   // before initConfig/initProfiles read them.
-  await migrateStorageToLocal()
+  await migrateStorageToSync()
 
   const [appConfig, activeProfile] = await Promise.all([
     initConfig(),
