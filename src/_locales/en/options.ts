@@ -456,7 +456,7 @@ export const locale: typeof _locale = {
       baseUrlHelp:
         'Custom: the endpoint URL (e.g. https://example.com/v1). Ollama: leave empty for http://localhost:11434/v1.',
       promptHelp:
-        'Placeholders: {{text}} source text, {{from}} source lang, {{to}} target lang, {{sentence}} the whole sentence the word is in.',
+        'Placeholders: {{text}} source text, {{from}} source lang, {{to}} target lang, {{sentence}} the whole sentence the word is in, {{source}} selection (selected on a page) or typed (entered by hand).',
       reasoningEffortHelp:
         "Reasoning effort — lower is faster and cheaper. Accepts none/minimal/low/medium/high/xhigh (none is the cheapest); leave empty for the model default. Current Claude models can't switch thinking off, so none is sent as low. Values a provider doesn't support are dropped automatically.",
       maxTokensHelp: 'Cap the output length. Empty or 0 means no limit.',

@@ -4,11 +4,11 @@ export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-nano'
 export const DEFAULT_OPENAI_TEMPERATURE = '0'
 
 /**
- * The prompts ship EMPTY on purpose. All behaviour lives in the prompt, and the
- * canonical copy is the repo-root `PROMPT.md` — the user pastes it into
- * 词典账号 → AI 翻译 (systemPrompt / prompt). Carrying no built-in default means
- * the engine never ships a prompt that drifts out of sync with PROMPT.md, and
- * there is nothing to migrate on version bumps.
+ * The prompts ship EMPTY on purpose. All behaviour lives in the prompt, which
+ * the user writes in 词典账号 → AI 翻译 (systemPrompt / prompt); that stored copy
+ * is the only one. Carrying no built-in default means the engine never ships a
+ * prompt that drifts out of sync with it, and there is nothing to migrate on
+ * version bumps.
  */
 export const DEFAULT_OPENAI_SYSTEM_PROMPT = ''
 export const DEFAULT_OPENAI_PROMPT = ''

@@ -228,7 +228,7 @@ export function mergeConfig(
 
   // Upgrade a never-customised OpenAI model (stored value still equals an old
   // default) to the current default. Prompts are intentionally NOT migrated:
-  // they ship empty and the user pastes their own (see root PROMPT.md), so
+  // they ship empty and the user writes their own in the settings, so
   // there is nothing to restore and a manual edit is never clobbered.
   const openaiAuth = base.dictAuth.openai
   if (openaiAuth && LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {

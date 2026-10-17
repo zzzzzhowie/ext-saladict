@@ -438,7 +438,7 @@ export const locale: typeof _locale = {
       baseUrlHelp:
         '自訂服務填介面位址（如 https://example.com/v1）；Ollama 留空即 http://localhost:11434/v1。',
       promptHelp:
-        '可用佔位符：{{text}} 原文、{{from}} 源語言、{{to}} 目標語言、{{sentence}} 劃詞所在整句。',
+        '可用佔位符：{{text}} 原文、{{from}} 源語言、{{to}} 目標語言、{{sentence}} 劃詞所在整句、{{source}} 來源（selection 頁面劃詞 / typed 手動輸入）。',
       reasoningEffortHelp:
         '推理強度，越低越快越省錢。可填 none/minimal/low/medium/high/xhigh（最省填 none）；留空則用模型預設。Claude 新模型無法完全關閉思考，none 會以 low 送出；服務商不支援的值會自動去掉。',
       maxTokensHelp: '限制輸出長度，留空或 0 表示不限制。',

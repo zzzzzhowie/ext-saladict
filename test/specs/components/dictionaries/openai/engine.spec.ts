@@ -176,6 +176,21 @@ describe('openai translator', () => {
     expect(translated).toBe('河岸')
   })
 
+  it('fills {{source}} with where the text came from', async () => {
+    const calls = mockFetch(() => chatReply('ok'))
+    const auth = { apiKey: 'sk-xxx', prompt: 'Source: {{source}}' }
+
+    await translate(auth, { text: 'bank', sentence: 'The bank was muddy.' })
+    await translate(auth, { text: 'bank', sentence: '' })
+    await translate(auth, { text: 'bank' })
+
+    expect(calls.map(c => c.body.messages[1].content)).toEqual([
+      'Source: selection',
+      'Source: typed',
+      'Source: typed'
+    ])
+  })
+
   it('uses max_completion_tokens and omits temperature for new models', async () => {
     const calls = mockFetch(() => chatReply('ok'))
 

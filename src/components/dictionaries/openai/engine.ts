@@ -117,15 +117,37 @@ export function hasCredential(resolved: ResolvedLLMConfig): boolean {
   )
 }
 
+/**
+ * Where the looked-up text came from, exposed to the prompt as `{{source}}`:
+ * - `selection` — selected on a page (incl. PDFs and the dict panel itself),
+ *   i.e. text someone else wrote.
+ * - `typed` — typed into the search box / quick-search, or preloaded from the
+ *   clipboard, likely the user's own writing.
+ * Told apart by the captured context: only a page selection has one. A failed
+ * capture reads as `typed`, which errs toward the fuller answer.
+ */
+export type LookupSource = 'selection' | 'typed'
+
+export function getLookupSource(sentence?: string): LookupSource {
+  return sentence && sentence.trim() ? 'selection' : 'typed'
+}
+
 function fillTemplate(
   template: string,
-  vars: { text: string; from: string; to: string; sentence: string }
+  vars: {
+    text: string
+    from: string
+    to: string
+    sentence: string
+    source: LookupSource
+  }
 ): string {
   return template
     .replace(/\{\{\s*text\s*\}\}/g, vars.text)
     .replace(/\{\{\s*from\s*\}\}/g, vars.from)
     .replace(/\{\{\s*to\s*\}\}/g, vars.to)
     .replace(/\{\{\s*sentence\s*\}\}/g, vars.sentence)
+    .replace(/\{\{\s*source\s*\}\}/g, vars.source)
 }
 
 /** Max chars of the CONTEXT sentence sent to the model (the selection itself
@@ -235,7 +257,8 @@ function buildChat(
       text: selection,
       from: input.from,
       to: input.to,
-      sentence
+      sentence,
+      source: getLookupSource(input.sentence)
     })
   }
 }
