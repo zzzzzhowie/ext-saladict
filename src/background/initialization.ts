@@ -2,7 +2,11 @@ import mapValues from 'lodash/mapValues'
 import { message, storage, openUrl } from '@/_helpers/browser-api'
 import { isExtTainted } from '@/_helpers/integrity'
 import { checkUpdate } from '@/_helpers/check-update'
-import { updateConfig, initConfig } from '@/_helpers/config-manager'
+import {
+  updateConfig,
+  initConfig,
+  migrateStorageToSync
+} from '@/_helpers/config-manager'
 import {
   getProfileIDList,
   initProfiles,
@@ -179,6 +183,10 @@ async function onInstalled({
   reason: string
   previousVersion?: string
 }) {
+  // Upgrading from a storage.local build: move settings into storage.sync
+  // before initConfig/initProfiles read them.
+  await migrateStorageToSync()
+
   const [appConfig, activeProfile] = await Promise.all([
     initConfig(),
     initProfiles()

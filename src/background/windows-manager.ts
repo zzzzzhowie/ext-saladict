@@ -1,4 +1,4 @@
-import { message, storage } from '@/_helpers/browser-api'
+import { storage } from '@/_helpers/browser-api'
 import { trySendMessageToTab } from '@/_helpers/message-tab'
 import { Word } from '@/_helpers/record-manager'
 import { isFirefox } from '@/_helpers/saladict'
@@ -306,7 +306,7 @@ export class QsPanelManager {
       await safeUpdateWindow(win.id, { focused: true })
       const [tab] = await browser.tabs.query({ windowId: win.id })
       if (tab && tab.id) {
-        await message.send(tab.id, { type: 'QS_PANEL_FOCUSED' })
+        await trySendMessageToTab(tab.id, { type: 'QS_PANEL_FOCUSED' })
       }
     }
   }

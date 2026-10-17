@@ -364,6 +364,15 @@ describe('Browser API Wapper', () => {
         expect(err.stack).toContain('message.send')
       }
     })
+    it('message.send resolves quietly when the extension context is invalidated', async () => {
+      browser.runtime.sendMessage.callsFake(() =>
+        Promise.reject(new Error('Extension context invalidated.'))
+      )
+
+      await expect(
+        message.send({ type: 'OPEN_QS_PANEL' })
+      ).resolves.toBeUndefined()
+    })
     it('message.addListener', () => {
       const cb1 = jest.fn()
       const cb2 = jest.fn()
@@ -568,6 +577,16 @@ describe('Browser API Wapper', () => {
           payload: 'value'
         })
       ).toBeTruthy()
+    })
+    it('message.self.send resolves quietly when the extension context is invalidated', async () => {
+      window.pageId = 1
+      browser.runtime.sendMessage.callsFake(() =>
+        Promise.reject(new Error('Extension context invalidated.'))
+      )
+
+      await expect(
+        message.self.send({ type: 'PLAY_AUDIO', payload: 'value' })
+      ).resolves.toBeUndefined()
     })
     it('message.self.send wraps runtime.lastError with call stack', async () => {
       const runtimeError = new Error(

@@ -43,6 +43,17 @@ describe('Tab Message Helper', () => {
     expect(isNoReceivingEndError(wrappedError)).toBeTruthy()
   })
 
+  it('treats a closed target tab as a benign missing receiver', async () => {
+    const runtimeError = new Error('No tab with id: 1813361635.')
+    browser.tabs.sendMessage.callsFake(() => Promise.reject(runtimeError))
+
+    const result = await trySendMessageToTab(1813361635, {
+      type: 'QUERY_PIN_STATE'
+    })
+
+    expect(result).toBeUndefined()
+  })
+
   it('rethrows other tab messaging errors', async () => {
     const runtimeError = new Error('Unexpected failure')
     browser.tabs.sendMessage.callsFake(() => Promise.reject(runtimeError))

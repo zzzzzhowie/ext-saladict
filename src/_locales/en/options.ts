@@ -441,7 +441,32 @@ export const locale: typeof _locale = {
     description:
       'As the number of Saladict users grows, if you make heavily use of machine translation services it is recommended to register an account for better stability and accuracy. The account data will only be stored in the browser.',
     dictHelp: 'See the official website of {dict}.',
-    manage: 'Manage Translator Accounts'
+    manage: 'Manage Translator Accounts',
+    openai: {
+      modelHelp:
+        'The provider is picked from the model name: a "vendor/" prefix (e.g. openai/gpt-5.4-nano) goes to OpenRouter; claude-* to Anthropic; gemini-* to Gemini; deepseek-* to DeepSeek; anything else to OpenAI.',
+      providerHelp:
+        '"Auto" routes by model name. Ollama and custom OpenAI-compatible endpoints can\'t be told apart by name, so pick them here.',
+      providerAuto: 'Auto (by model name)',
+      providerCustom: 'Custom (OpenAI-compatible)',
+      route: 'Calls',
+      routeMissing: 'missing',
+      routeKeyIssuer: 'looks like a {{provider}} key',
+      routeKeyPrefix: 'should start with {{prefix}}',
+      baseUrlHelp:
+        'Custom: the endpoint URL (e.g. https://example.com/v1). Ollama: leave empty for http://localhost:11434/v1.',
+      promptHelp:
+        'Placeholders: {{text}} source text, {{from}} source lang, {{to}} target lang, {{sentence}} the whole sentence the word is in, {{source}} selection (selected on a page) or typed (entered by hand).',
+      reasoningEffortHelp:
+        "Reasoning effort — lower is faster and cheaper. Accepts none/minimal/low/medium/high/xhigh (none is the cheapest); leave empty for the model default. Current Claude models can't switch thinking off, so none is sent as low. Values a provider doesn't support are dropped automatically.",
+      maxTokensHelp: 'Cap the output length. Empty or 0 means no limit.',
+      test: 'Test service',
+      testSuccess: 'Test succeeded: ',
+      testEmpty: 'Test failed: the model returned nothing.',
+      testMissing:
+        "Please fill in the model and its provider's apiKey first (plus baseUrl for a custom endpoint).",
+      testFailed: 'Test failed: '
+    }
   },
 
   third_party_privacy: 'Third Party Privacy',

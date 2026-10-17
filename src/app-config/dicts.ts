@@ -20,6 +20,7 @@ import longman from '@/components/dictionaries/longman/config'
 import mojidict from '@/components/dictionaries/mojidict/config'
 import naver from '@/components/dictionaries/naver/config'
 import niutrans from '@/components/dictionaries/niutrans/config'
+import openai from '@/components/dictionaries/openai/config'
 import renren from '@/components/dictionaries/renren/config'
 // import shanbay from '@/components/dictionaries/shanbay/config'
 import tencent from '@/components/dictionaries/tencent/config'
@@ -57,6 +58,7 @@ export const defaultAllDicts = {
   mojidict: mojidict(),
   naver: naver(),
   niutrans: niutrans(),
+  openai: openai(),
   renren: renren(),
   // shanbay: shanbay(),
   tencent: tencent(),

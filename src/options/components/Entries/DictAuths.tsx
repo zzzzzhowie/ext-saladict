@@ -9,6 +9,7 @@ import {
 import { useTranslate, Trans } from '@/_helpers/i18n'
 import { objectKeys } from '@/typings/helpers'
 import { defaultDictAuthUrls } from '@/app-config/auth'
+import { getOpenAIAuthItems } from './OpenAIAuth'
 
 const trimAuthValue = (value: unknown) =>
   typeof value === 'string' ? value.trim() : value
@@ -37,6 +38,11 @@ export const DictAuths: FC = () => {
     const auth = dictAuths[dictID]!
     const configPath = getConfigPath('dictAuth', dictID)
     const title = t(`dicts:${dictID}.name`)
+
+    if (dictID === 'openai') {
+      formItems.push(...getOpenAIAuthItems(t, configPath, title, url))
+      return
+    }
 
     objectKeys(auth).forEach((key, i, keys) => {
       const isLast = i + 1 === keys.length

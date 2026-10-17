@@ -1,6 +1,10 @@
 import { AppConfig } from '@/app-config'
 import { Profile, ProfileIDList } from '@/app-config/profiles'
-import { addConfigListener, getConfig } from '@/_helpers/config-manager'
+import {
+  addConfigListener,
+  getConfig,
+  migrateStorageToSync
+} from '@/_helpers/config-manager'
 import {
   addActiveProfileListener,
   addProfileIDListListener,
@@ -56,6 +60,10 @@ export async function initBackgroundState(): Promise<BackgroundState> {
 }
 
 async function loadBackgroundState(): Promise<BackgroundState> {
+  // Move settings kept in storage.local (8.0.25–8.0.33) into storage.sync
+  // before first read.
+  await migrateStorageToSync()
+
   const [appConfig, activeProfile, profileIDList] = await Promise.all([
     getConfig(),
     getActiveProfile(),

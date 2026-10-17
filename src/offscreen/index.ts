@@ -35,6 +35,13 @@ async function playAudio(src?: string) {
   resetAudio()
   const nextAudio = new Audio(src)
   audio = nextAudio
+  // Forget a clip once it's over: otherwise clicking the same speaker again
+  // hits the "same src = stop" toggle above and every other click is silent.
+  nextAudio.onended = nextAudio.onerror = () => {
+    if (audio === nextAudio) {
+      audio = undefined
+    }
+  }
 
   try {
     await nextAudio.play()

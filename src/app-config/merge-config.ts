@@ -12,6 +12,12 @@ import isString from 'lodash/isString'
 import isBoolean from 'lodash/isBoolean'
 import get from 'lodash/get'
 import set from 'lodash/set'
+import {
+  DEFAULT_OPENAI_MODEL,
+  LEGACY_OPENAI_MODELS,
+  migrateSingleProviderAuth
+} from '@/components/dictionaries/openai/auth'
+import { DEFAULT_DEEPL_AUTH_KEY } from '@/components/dictionaries/deepl/auth'
 
 export default mergeConfig
 
@@ -218,6 +224,28 @@ export function mergeConfig(
 
   if (base.panelMaxHeightRatio < 1) {
     base.panelMaxHeightRatio = Math.round(base.panelMaxHeightRatio * 100)
+  }
+
+  // Upgrade a never-customised OpenAI model (stored value still equals an old
+  // default) to the current default. Prompts are intentionally NOT migrated:
+  // they ship empty and the user writes their own in the settings, so
+  // there is nothing to restore and a manual edit is never clobbered.
+  const openaiAuth = base.dictAuth.openai
+  if (openaiAuth && LEGACY_OPENAI_MODELS.includes(openaiAuth.model)) {
+    openaiAuth.model = DEFAULT_OPENAI_MODEL
+  }
+
+  // Configs from before multi-provider support have no `provider`: move their
+  // single baseUrl + apiKey account to the provider that baseUrl served.
+  const storedOpenaiAuth = get(oldConfig, 'dictAuth.openai')
+  if (openaiAuth && storedOpenaiAuth && !('provider' in storedOpenaiAuth)) {
+    migrateSingleProviderAuth(openaiAuth)
+  }
+
+  // Fill in the built-in DeepL auth key (from .env) when the user has none.
+  const deeplAuth = base.dictAuth.deepl
+  if (deeplAuth && !deeplAuth.authKey && DEFAULT_DEEPL_AUTH_KEY) {
+    deeplAuth.authKey = DEFAULT_DEEPL_AUTH_KEY
   }
   /* ----------------------------------------------- *\
       Post-merge Patch End

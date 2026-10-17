@@ -67,8 +67,12 @@ export const searchStartEpic: Epic = (action$, state$) =>
                   text: word.text,
                   payload:
                     payload && payload.payload
-                      ? { isPDF: isPDFPage(), ...payload.payload }
-                      : { isPDF: isPDFPage() }
+                      ? {
+                          isPDF: isPDFPage(),
+                          sentence: word.context,
+                          ...payload.payload
+                        }
+                      : { isPDF: isPDFPage(), sentence: word.context }
                 }
               })
               .catch(() => ({ id, result: null }))

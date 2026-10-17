@@ -423,7 +423,32 @@ export const locale: typeof _locale = {
     description:
       '隨著沙拉查詞使用者增多，如經常使用機器翻譯，建議到官網申請帳號以獲得更穩定的體驗以及更準確的結果。以下帳號資料只會保留在瀏覽器中。',
     dictHelp: '見{詞典}官網。',
-    manage: '管理私用帳號'
+    manage: '管理私用帳號',
+    openai: {
+      modelHelp:
+        '依模型名稱自動選擇服務商：帶「廠商/」前綴（如 openai/gpt-5.4-nano）走 OpenRouter；claude-* 走 Anthropic；gemini-* 走 Gemini；deepseek-* 走 DeepSeek；其餘走 OpenAI。',
+      providerHelp:
+        '預設「自動」依模型名稱識別。Ollama 和自訂 OpenAI 相容介面無法識別，需要在這裡手動選擇。',
+      providerAuto: '自動（依模型名稱識別）',
+      providerCustom: '自訂（OpenAI 相容）',
+      route: '實際呼叫',
+      routeMissing: '缺少',
+      routeKeyIssuer: '看起來是 {{provider}} 的 key',
+      routeKeyPrefix: '應以 {{prefix}} 開頭',
+      baseUrlHelp:
+        '自訂服務填介面位址（如 https://example.com/v1）；Ollama 留空即 http://localhost:11434/v1。',
+      promptHelp:
+        '可用佔位符：{{text}} 原文、{{from}} 源語言、{{to}} 目標語言、{{sentence}} 劃詞所在整句、{{source}} 來源（selection 頁面劃詞 / typed 手動輸入）。',
+      reasoningEffortHelp:
+        '推理強度，越低越快越省錢。可填 none/minimal/low/medium/high/xhigh（最省填 none）；留空則用模型預設。Claude 新模型無法完全關閉思考，none 會以 low 送出；服務商不支援的值會自動去掉。',
+      maxTokensHelp: '限制輸出長度，留空或 0 表示不限制。',
+      test: '測試服務',
+      testSuccess: '測試成功：',
+      testEmpty: '測試失敗：模型未返回任何內容。',
+      testMissing:
+        '請先填寫 model 和對應服務商的 apiKey（自訂服務還要填 baseUrl）。',
+      testFailed: '測試失敗：'
+    }
   },
 
   third_party_privacy: '第三方隱私',

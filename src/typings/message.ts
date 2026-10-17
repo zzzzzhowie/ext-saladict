@@ -80,6 +80,8 @@ export type MessageConfig = MessageConfigType<{
       /** engine search function payload */
       payload: {
         isPDF: boolean
+        /** the sentence the selected word belongs to (selection context) */
+        sentence?: string
         [index: string]: any
       }
     }
@@ -162,6 +164,11 @@ export type MessageConfig = MessageConfigType<{
   PLAY_AUDIO: {
     /** url: to backend */
     payload: string
+  }
+
+  /** Read a word aloud, synthesized from `ipa` (Google Cloud TTS) when given */
+  PLAY_PRONUNCIATION: {
+    payload: { text: string; ipa?: string }
   }
 
   STOP_AUDIO: {}

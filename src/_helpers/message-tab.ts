@@ -13,7 +13,11 @@ export function isNoReceivingEndError(error: unknown): boolean {
 
   return !!(
     runtimeError &&
-    /Could not establish connection|Receiving end does not exist/.test(
+    // The receiver is gone: either no content script is listening
+    // ("Could not establish connection" / "Receiving end does not exist"),
+    // or the target tab itself was closed between lookup and send
+    // ("No tab with id: N" / "The tab was closed"). All are benign races.
+    /Could not establish connection|Receiving end does not exist|No tab with id|tab was closed/.test(
       runtimeError.message
     )
   )
